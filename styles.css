@@ -141,3 +141,30 @@ body {
 /* Статус загрузки */
 .status-text { margin-top: 15px; font-weight: 600; text-align: center; font-size: 14px;}
 .loader { text-align: center; color: #8e8e93; font-size: 14px; margin-bottom: 15px; font-weight: 600;}
+
+/* ПОЛНОЭКРАННАЯ ЗАГРУЗКА (Overlay) */
+.global-loader {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255, 255, 255, 0.85); /* Полупрозрачный белый фон */
+    backdrop-filter: blur(5px); /* Размытие заднего фона */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999; /* Поверх всего приложения */
+    display: none; /* Изначально скрыто */
+}
+.global-loader.active {
+    display: flex; /* Показываем, когда нужно */
+}
+.global-loader i {
+    font-size: 50px;
+    color: #007aff;
+    margin-bottom: 20px;
+}
+.global-loader .loader-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1c1c1e;
+}
