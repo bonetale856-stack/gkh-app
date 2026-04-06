@@ -18,6 +18,12 @@
 </head>
 <body>
 
+        <!-- ПОЛНОЭКРАННАЯ ЗАГРУЗКА -->
+    <div id="globalLoader" class="global-loader">
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+        <div id="loaderText" class="loader-text">Загрузка...</div>
+    </div>
+
     <div class="top-bar" id="headerTitle">Новая заявка</div>
 
     <div class="container">
@@ -96,127 +102,110 @@
         </div>
     </div>
 
-    <script>
-        // === ВАЖНО: ВСТАВЬ СВОЮ ССЫЛКУ НИЖЕ ===
-        const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
-        
-        let currentUser = null;
+ <script>
 
-        window.onload = async function() {
-            const userStr = localStorage.getItem("currentUser");
-            if (!userStr) { window.location.href = "index.html"; return; }
-            currentUser = JSON.parse(userStr);
-            if (currentUser.role !== "диспетчер") { window.location.href = "index.html"; return; }
+    const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
+    
+    let currentUser = null;
 
-            document.getElementById("profileName").innerText = currentUser.name;
-            await loadDatabase();
-        };
+    function showLoader(text) {
+        document.getElementById("loaderText").innerText = text;
+        document.getElementById("globalLoader").classList.add("active");
+    }
+    function hideLoader() { document.getElementById("globalLoader").classList.remove("active"); }
 
-        // Переключение вкладок
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-            
-            document.getElementById('tab-' + tabName).classList.add('active');
-            document.getElementById('nav-' + tabName).classList.add('active');
-            
-            const titles = { 'create': 'Новая заявка', 'list': 'История заявок', 'profile': 'Профиль' };
-            document.getElementById('headerTitle').innerText = titles[tabName];
+    window.onload = async function() {
+        const userStr = localStorage.getItem("currentUser");
+        if (!userStr) { window.location.href = "index.html"; return; }
+        currentUser = JSON.parse(userStr);
+        if (currentUser.role !== "диспетчер") { window.location.href = "index.html"; return; }
+        document.getElementById("profileName").innerText = currentUser.name;
+        await loadDatabase();
+    };
 
-            // ЕСЛИ НАЖАЛИ НА ВКЛАДКУ "ЗАЯВКИ" - ЗАГРУЖАЕМ ИХ!
-            if (tabName === 'list') {
-                loadMyTickets();
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+        document.getElementById('tab-' + tabName).classList.add('active');
+        document.getElementById('nav-' + tabName).classList.add('active');
+        const titles = { 'create': 'Новая заявка', 'list': 'История заявок', 'profile': 'Профиль' };
+        document.getElementById('headerTitle').innerText = titles[tabName];
+
+        if (tabName === 'list') loadMyTickets();
+    }
+
+    async function loadDatabase() {
+        showLoader("Подгрузка базы адресов...");
+        try {
+            const addrResponse = await fetch(URL_GOOGLE_SERVER + "?action=getAddresses");
+            const addresses = await addrResponse.json();
+            const addrDatalist = document.getElementById("addressList");
+            addresses.forEach(addr => { let option = document.createElement("option"); option.value = addr; addrDatalist.appendChild(option); });
+
+            const usersResponse = await fetch(URL_GOOGLE_SERVER);
+            const users = await usersResponse.json();
+            const masterDatalist = document.getElementById("mastersList");
+            users.forEach(user => {
+                if (user.role === "мастер") { let option = document.createElement("option"); option.value = user.name; masterDatalist.appendChild(option); }
+            });
+            hideLoader();
+        } catch (error) { hideLoader(); alert("Ошибка загрузки базы"); }
+    }
+
+    async function sendTicket() {
+        const address = document.getElementById("address").value.trim();
+        const problem = document.getElementById("problem").value.trim();
+        const master = document.getElementById("masterInput").value.trim();
+        const statusDiv = document.getElementById("status");
+
+        if (!address || !problem || !master) { statusDiv.innerText = "Заполните все поля!"; statusDiv.style.color = "#ff3b30"; return; }
+
+        showLoader("Отправка заявки...");
+
+        const ticketData = { dispatcherName: currentUser.name, address: address, problem: problem, masterName: master };
+        try {
+            const response = await fetch(URL_GOOGLE_SERVER, { method: "POST", body: JSON.stringify(ticketData), headers: { "Content-Type": "text/plain;charset=utf-8" }});
+            const result = await response.json();
+            if (result.status === "success") {
+                hideLoader();
+                statusDiv.innerHTML = '<i class="fa-solid fa-check"></i> Успешно отправлено!';
+                statusDiv.style.color = "#34c759";
+                document.getElementById("address").value = ""; document.getElementById("problem").value = ""; document.getElementById("masterInput").value = "";
+                setTimeout(() => { statusDiv.innerText = ""; }, 3000);
             }
-        }
+        } catch (error) { hideLoader(); statusDiv.innerText = "Ошибка связи."; statusDiv.style.color = "#ff3b30"; }
+    }
 
-        // Загрузка адресов
-        async function loadDatabase() {
-            try {
-                const addrResponse = await fetch(URL_GOOGLE_SERVER + "?action=getAddresses");
-                const addresses = await addrResponse.json();
-                const addrDatalist = document.getElementById("addressList");
-                addresses.forEach(addr => { let option = document.createElement("option"); option.value = addr; addrDatalist.appendChild(option); });
+    async function loadMyTickets() {
+        showLoader("Обновление списка...");
+        document.getElementById("ticketsContainer").innerHTML = "";
+        document.getElementById("noTicketsMsg").style.display = "none";
 
-                const usersResponse = await fetch(URL_GOOGLE_SERVER);
-                const users = await usersResponse.json();
-                const masterDatalist = document.getElementById("mastersList");
-                users.forEach(user => {
-                    if (user.role === "мастер") { let option = document.createElement("option"); option.value = user.name; masterDatalist.appendChild(option); }
-                });
-                document.getElementById("loading").style.display = "none";
-            } catch (error) { document.getElementById("loading").innerHTML = 'Ошибка базы.'; }
-        }
+        try {
+            const response = await fetch(URL_GOOGLE_SERVER + "?action=getDispatcherTickets&dispatcherName=" + encodeURIComponent(currentUser.name));
+            const tickets = await response.json();
+            hideLoader();
 
-        // Отправка заявки
-        async function sendTicket() {
-            const address = document.getElementById("address").value.trim();
-            const problem = document.getElementById("problem").value.trim();
-            const master = document.getElementById("masterInput").value.trim();
-            const statusDiv = document.getElementById("status");
+            if (tickets.length === 0) { document.getElementById("noTicketsMsg").style.display = "block"; return; }
 
-            if (!address || !problem || !master) { statusDiv.innerText = "Заполните все поля!"; statusDiv.style.color = "#ff3b30"; return; }
+            const container = document.getElementById("ticketsContainer");
+            tickets.forEach(ticket => {
+                const div = document.createElement("div");
+                div.className = "card";
+                let badgeClass = ticket.status === "Новая" ? "status-new" : "status-done";
+                let statusIcon = ticket.status === "Новая" ? "fa-clock" : "fa-check-double";
+                div.innerHTML = `
+                    <div class="status-badge ${badgeClass}"><i class="fa-solid ${statusIcon}"></i> ${ticket.status}</div>
+                    <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${ticket.address}</div>
+                    <div style="font-size: 14px; color: #3a3a3c;">${ticket.problem}</div>
+                    <div class="ticket-info"><div><i class="fa-regular fa-calendar-days"></i> ${ticket.date}</div><div style="margin-top: 4px;"><i class="fa-solid fa-helmet-safety"></i> Мастер: ${ticket.master}</div></div>
+                `;
+                container.appendChild(div);
+            });
+        } catch (error) { hideLoader(); alert('Ошибка загрузки истории.'); }
+    }
 
-            statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Отправляем...';
-            statusDiv.style.color = "#007aff";
-
-            const ticketData = { dispatcherName: currentUser.name, address: address, problem: problem, masterName: master };
-
-            try {
-                const response = await fetch(URL_GOOGLE_SERVER, { method: "POST", body: JSON.stringify(ticketData), headers: { "Content-Type": "text/plain;charset=utf-8" }});
-                const result = await response.json();
-                if (result.status === "success") {
-                    statusDiv.innerHTML = '<i class="fa-solid fa-check"></i> Успешно отправлено!';
-                    statusDiv.style.color = "#34c759";
-                    document.getElementById("address").value = ""; document.getElementById("problem").value = ""; document.getElementById("masterInput").value = "";
-                    setTimeout(() => { statusDiv.innerText = ""; }, 3000);
-                }
-            } catch (error) { statusDiv.innerText = "Ошибка связи."; statusDiv.style.color = "#ff3b30"; }
-        }
-
-        // НОВОЕ: ЗАГРУЗКА ИСТОРИИ ЗАЯВОК ДИСПЕТЧЕРА
-        async function loadMyTickets() {
-            document.getElementById("loadingTickets").style.display = "block";
-            document.getElementById("ticketsContainer").innerHTML = "";
-            document.getElementById("noTicketsMsg").style.display = "none";
-
-            try {
-                const response = await fetch(URL_GOOGLE_SERVER + "?action=getDispatcherTickets&dispatcherName=" + encodeURIComponent(currentUser.name));
-                const tickets = await response.json();
-                
-                document.getElementById("loadingTickets").style.display = "none";
-
-                if (tickets.length === 0) {
-                    document.getElementById("noTicketsMsg").style.display = "block";
-                    return;
-                }
-
-                const container = document.getElementById("ticketsContainer");
-                tickets.forEach(ticket => {
-                    const div = document.createElement("div");
-                    div.className = "card";
-                    
-                    // Выбираем цвет бейджика в зависимости от статуса
-                    let badgeClass = ticket.status === "Новая" ? "status-new" : "status-done";
-                    let statusIcon = ticket.status === "Новая" ? "fa-clock" : "fa-check-double";
-
-                    div.innerHTML = `
-                        <div class="status-badge ${badgeClass}"><i class="fa-solid ${statusIcon}"></i> ${ticket.status}</div>
-                        <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${ticket.address}</div>
-                        <div style="font-size: 14px; color: #3a3a3c;">${ticket.problem}</div>
-                        <div class="ticket-info">
-                            <div><i class="fa-regular fa-calendar-days"></i> ${ticket.date}</div>
-                            <div style="margin-top: 4px;"><i class="fa-solid fa-helmet-safety"></i> Мастер: ${ticket.master}</div>
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
-            } catch (error) {
-                document.getElementById("loadingTickets").innerHTML = 'Ошибка загрузки.';
-                document.getElementById("loadingTickets").style.color = "#ff3b30";
-            }
-        }
-
-        function logout() { localStorage.removeItem("currentUser"); window.location.href = "index.html"; }
-    </script>
+    function logout() { localStorage.removeItem("currentUser"); window.location.href = "index.html"; }
+</script>
 </body>
 </html>
