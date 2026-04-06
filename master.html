@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Рабочее место Мастера</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        h2 { color: #333; margin-top: 0; border-bottom: 2px solid #ff9800; padding-bottom: 10px;}
+        
+        /* Стили для карточек заявок */
+        .ticket-card { background: #fff3e0; border-left: 5px solid #ff9800; padding: 15px; margin-bottom: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .ticket-card:active { background: #ffe0b2; }
+        .ticket-date { font-size: 12px; color: #888; margin-bottom: 5px;}
+        .ticket-address { font-weight: bold; color: #333; margin-bottom: 5px;}
+        .ticket-problem { font-size: 14px; color: #555; }
+        
+        /* Стили для формы отчета (изначально скрыта) */
+        #reportForm { display: none; }
+        label { font-weight: bold; color: #555; display: block; margin-top: 15px; margin-bottom: 5px; font-size: 14px;}
+        input[type="number"], textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        /* Чекбокс "Бесплатно" */
+        .checkbox-container { background: #e8f5e9; padding: 15px; border-radius: 8px; margin-top: 15px; border: 1px solid #c8e6c9; display: flex; align-items: center; cursor: pointer;}
+        .checkbox-container input { transform: scale(1.5); margin-right: 15px; }
+        .checkbox-container span { font-weight: bold; color: #2e7d32; }
+
+        .total-box { background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: right; font-size: 18px; font-weight: bold; color: #1565c0;}
+
+        button.btn-submit { width: 100%; padding: 14px; background-color: #ff9800; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+        button.btn-back { width: 100%; padding: 10px; background-color: transparent; color: #666; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px; cursor: pointer; }
+        button.btn-logout { width: 100%; padding: 10px; background-color: transparent; color: #dc3545; border: 1px solid #dc3545; border-radius: 8px; margin-top: 25px; cursor: pointer; }
+        
+        #loading { text-align: center; color: #888; font-size: 14px; }
+        #emptyMsg { text-align: center; color: #28a745; font-weight: bold; display: none; padding: 20px;}
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2 id="welcomeMsg">Мастер</h2>
+
+        <!-- ЭКРАН 1: СПИСОК ЗАЯВОК -->
+        <div id="ticketsListScreen">
+            <div id="loading">⏳ Ищем ваши заявки...</div>
+            <div id="emptyMsg">🎉 У вас нет активных заявок!<br>Можно пить чай ☕</div>
+            <div id="ticketsContainer"></div>
+            <button class="btn-logout" onclick="logout()">Выйти из аккаунта</button>
+        </div>
+
+        <!-- ЭКРАН 2: ФОРМА ОТЧЕТА -->
+        <div id="reportForm">
+            <h3 style="margin-top:0; color:#ff9800;">Заполнение отчета</h3>
+            <div id="selectedTicketInfo" style="background:#f9f9f9; padding:10px; border-radius:8px; font-size:14px; margin-bottom:15px;"></div>
+
+            <label>Описание выполненных работ:</label>
+            <textarea id="repDescription" rows="3" placeholder="Например: Заменил кранбуксу..."></textarea>
+
+            <!-- Тот самый чекбокс -->
+            <label class="checkbox-container">
+                <input type="checkbox" id="isFree" onchange="toggleMoney()">
+                <span>В счет содержания жилья (Бесплатно)</span>
+            </label>
+
+            <!-- Блок с деньгами (скроется, если нажать чекбокс) -->
+            <div id="moneyBlock">
+                <label>Стоимость работы (руб):</label>
+                <input type="number" id="repWork" value="0" oninput="calcTotal()" inputmode="numeric">
+
+                <label>Материалы (руб):</label>
+                <input type="number" id="repMaterial" value="0" oninput="calcTotal()" inputmode="numeric">
+
+                <label>Доставка (руб):</label>
+                <input type="number" id="repDelivery" value="0" oninput="calcTotal()" inputmode="numeric">
+
+                <div class="total-box">Итого: <span id="totalSum">0</span> руб.</div>
+            </div>
+
+            <button class="btn-submit" onclick="submitReport()">Отправить отчет и закрыть заявку</button>
+            <button class="btn-back" onclick="goBack()">Отмена (Назад)</button>
+            <div id="status" style="text-align: center; margin-top: 10px; font-weight: bold;"></div>
+        </div>
+
+    </div>
+
+    <script>
+        // ВАЖНО! Вставь сюда свою ссылку
+        const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
+        
+        let currentUser = null;
+        let activeTicketId = null; // Запоминаем, какую заявку сейчас закрываем
+
+        window.onload = async function() {
+            const userStr = localStorage.getItem("currentUser");
+            if (!userStr) { window.location.href = "index.html"; return; }
+            currentUser = JSON.parse(userStr);
+            if (currentUser.role !== "мастер") { window.location.href = "index.html"; return; }
+
+            document.getElementById("welcomeMsg").innerText = "Мастер: " + currentUser.name;
+            await loadTickets();
+        };
+
+        // Загружаем только заявки ЭТОГО мастера
+        async function loadTickets() {
+            document.getElementById("loading").style.display = "block";
+            document.getElementById("ticketsContainer").innerHTML = "";
+            document.getElementById("emptyMsg").style.display = "none";
+
+            try {
+                // Обращаемся к Гуглу, передаем имя мастера
+                const response = await fetch(URL_GOOGLE_SERVER + "?action=getTickets&masterName=" + encodeURIComponent(currentUser.name));
+                const tickets = await response.json();
+                
+                document.getElementById("loading").style.display = "none";
+
+                if (tickets.length === 0) {
+                    document.getElementById("emptyMsg").style.display = "block";
+                    return;
+                }
+
+                // Рисуем карточки заявок
+                const container = document.getElementById("ticketsContainer");
+                tickets.forEach(ticket => {
+                    const div = document.createElement("div");
+                    div.className = "ticket-card";
+                    div.innerHTML = `
+                        <div class="ticket-date">📅 ${ticket.date}</div>
+                        <div class="ticket-address">📍 ${ticket.address}</div>
+                        <div class="ticket-problem">🔧 ${ticket.problem}</div>
+                    `;
+                    // При клике открываем форму отчета
+                    div.onclick = () => openReportForm(ticket);
+                    container.appendChild(div);
+                });
+
+            } catch (error) {
+                document.getElementById("loading").innerText = "❌ Ошибка загрузки заявок.";
+                document.getElementById("loading").style.color = "red";
+            }
+        }
+
+        // Открытие формы отчета
+        function openReportForm(ticket) {
+            activeTicketId = ticket.id; // Запомнили ID заявки
+            document.getElementById("ticketsListScreen").style.display = "none";
+            document.getElementById("reportForm").style.display = "block";
+            
+            // Показываем мастеру, что он закрывает
+            document.getElementById("selectedTicketInfo").innerHTML = `<b>Адрес:</b> ${ticket.address}<br><b>Проблема:</b> ${ticket.problem}`;
+            
+            // Сбрасываем форму
+            document.getElementById("repDescription").value = "";
+            document.getElementById("isFree").checked = false;
+            document.getElementById("repWork").value = "0";
+            document.getElementById("repMaterial").value = "0";
+            document.getElementById("repDelivery").value = "0";
+            toggleMoney(); // Обновляем видимость денег
+        }
+
+        function goBack() {
+            document.getElementById("reportForm").style.display = "none";
+            document.getElementById("ticketsListScreen").style.display = "block";
+        }
+
+        // Логика исчезновения денег
+        function toggleMoney() {
+            const isFree = document.getElementById("isFree").checked;
+            const moneyBlock = document.getElementById("moneyBlock");
+            if (isFree) {
+                moneyBlock.style.display = "none"; // Прячем
+            } else {
+                moneyBlock.style.display = "block"; // Показываем
+                calcTotal();
+            }
+        }
+
+        // Автокалькулятор суммы
+        function calcTotal() {
+            const w = parseInt(document.getElementById("repWork").value) || 0;
+            const m = parseInt(document.getElementById("repMaterial").value) || 0;
+            const d = parseInt(document.getElementById("repDelivery").value) || 0;
+            document.getElementById("totalSum").innerText = w + m + d;
+        }
+
+        // Отправка отчета в базу
+        async function submitReport() {
+            const desc = document.getElementById("repDescription").value.trim();
+            const isFree = document.getElementById("isFree").checked;
+            const statusDiv = document.getElementById("status");
+
+            if (!desc) {
+                statusDiv.innerText = "❌ Напишите, что вы сделали!";
+                statusDiv.style.color = "red";
+                return;
+            }
+
+            // Собираем данные
+            const reportData = {
+                action: "submitReport",
+                ticketId: activeTicketId,
+                masterName: currentUser.name,
+                description: desc,
+                paymentType: isFree ? "Бесплатно" : "Платно",
+                workCost: isFree ? 0 : (parseInt(document.getElementById("repWork").value) || 0),
+                materialCost: isFree ? 0 : (parseInt(document.getElementById("repMaterial").value) || 0),
+                deliveryCost: isFree ? 0 : (parseInt(document.getElementById("repDelivery").value) || 0),
+                totalCost: isFree ? 0 : parseInt(document.getElementById("totalSum").innerText)
+            };
+
+            statusDiv.innerText = "⏳ Отправляем отчет...";
+            statusDiv.style.color = "#007bff";
+
+            try {
+                const response = await fetch(URL_GOOGLE_SERVER, {
+                    method: "POST",
+                    body: JSON.stringify(reportData),
+                    headers: { "Content-Type": "text/plain;charset=utf-8" }
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === "success") {
+                    statusDiv.innerText = "✅ Отчет принят!";
+                    statusDiv.style.color = "green";
+                    
+                    // Через 2 секунды возвращаем в список заявок и обновляем его
+                    setTimeout(() => {
+                        statusDiv.innerText = "";
+                        goBack();
+                        loadTickets(); // Заявка должна исчезнуть из списка!
+                    }, 2000);
+                }
+            } catch (error) {
+                statusDiv.innerText = "❌ Ошибка связи с сервером.";
+                statusDiv.style.color = "red";
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("currentUser");
+            window.location.href = "index.html";
+        }
+    </script>
+</body>
+</html>
