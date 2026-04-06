@@ -41,6 +41,16 @@
     </div>
 
     <script>
+           window.onload = function() {
+            const userStr = localStorage.getItem("currentUser");
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                // Если уже вошел - мгновенно кидаем обратно без сохранения в историю (replace)
+                if (user.role === "диспетчер") window.location.replace("dispatcher.html");
+                else if (user.role === "мастер") window.location.replace("master.html");
+            }
+        };
+        
         // Управление экраном загрузки
         function showLoader(text) {
             document.getElementById("loaderText").innerText = text;
@@ -50,7 +60,6 @@
             document.getElementById("globalLoader").classList.remove("active");
         }
 
-        // ВАЖНО: ВСТАВЬ ССЫЛКУ СЮДА
         const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
 
         async function login() {
