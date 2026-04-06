@@ -131,14 +131,23 @@
         let myTicketsArray = []; // Сохраняем загруженные заявки тут
         let currentEditId = null;
 
-        window.onload = async function() {
+         window.onload = async function() {
             const userStr = localStorage.getItem("currentUser");
-            if (!userStr) { window.location.href = "index.html"; return; }
+            if (!userStr) { window.location.replace("index.html"); return; }
             currentUser = JSON.parse(userStr);
-            if (currentUser.role !== "диспетчер") { window.location.href = "index.html"; return; }
+            if (currentUser.role !== "диспетчер") { window.location.replace("index.html"); return; }
 
             document.getElementById("profileName").innerText = currentUser.name;
             
+            // === МАГИЯ ДЛЯ КНОПКИ "НАЗАД" (Шаг 1) ===
+            // Запоминаем первую вкладку при входе
+            if (!window.location.hash) {
+                history.replaceState({tab: 'create'}, "", "#create");
+            } else {
+                let hashTab = window.location.hash.replace('#', '');
+                applyTab(hashTab);
+            }
+
             // Грузим базы тихо в фоне
             fetch(URL_GOOGLE_SERVER + "?action=getAddresses").then(r => r.json()).then(addrs => {
                 const dl = document.getElementById("addressList"); addrs.forEach(a => dl.innerHTML += `<option value="${a}">`);
@@ -148,13 +157,35 @@
             });
         };
 
+        // === МАГИЯ ДЛЯ КНОПКИ "НАЗАД" (Шаг 2) ===
+        // Слушаем свайп "Назад" на телефоне
+        window.addEventListener('popstate', (event) => {
+            if (event.state && event.state.tab) {
+                applyTab(event.state.tab); // Переключаем на предыдущую вкладку
+            } else {
+                applyTab('create'); // Если истории нет - кидаем на первую вкладку
+            }
+        });
+
+        // Когда кликаем по меню - записываем это в историю телефона
         function switchTab(tabName) {
+            history.pushState({tab: tabName}, "", "#" + tabName);
+            applyTab(tabName);
+        }
+
+        // Сама логика перекрашивания кнопок меню
+        function applyTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-            document.getElementById('tab-' + tabName).classList.add('active');
-            document.getElementById('nav-' + tabName).classList.add('active');
+            
+            // Защита от ошибок
+            const tabElement = document.getElementById('tab-' + tabName);
+            const navElement = document.getElementById('nav-' + tabName);
+            if(tabElement) tabElement.classList.add('active');
+            if(navElement) navElement.classList.add('active');
+            
             const titles = { 'create': 'Новая заявка', 'list': 'История заявок', 'profile': 'Профиль' };
-            document.getElementById('headerTitle').innerText = titles[tabName];
+            document.getElementById('headerTitle').innerText = titles[tabName] || 'Служба ЖКХ';
 
             if (tabName === 'list') loadMyTickets();
             if (tabName === 'profile') loadStats();
