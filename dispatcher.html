@@ -160,15 +160,36 @@
             if (tabName === 'profile') loadStats();
         }
 
-        async function sendTicket() {
+                async function sendTicket() {
             const address = document.getElementById("address").value.trim();
             const problem = document.getElementById("problem").value.trim();
             const master = document.getElementById("masterInput").value.trim();
             const btn = document.getElementById("btnSubmitTicket");
 
-            if (!address || !problem || !master) { alert("Заполните все поля!"); return; }
+            if (!address || !problem || !master) { 
+                alert("Заполните все поля!"); 
+                return; 
+            }
 
-            // Блокируем кнопку и меняем текст (ВМЕСТО ПОЛНОЭКРАННОЙ АНИМАЦИИ)
+            // === НОВАЯ ЗАЩИТА: ПРОВЕРКА АДРЕСА И МАСТЕРА ===
+            
+            // 1. Проверяем адрес (берем все варианты из datalist)
+            const addressOptions = Array.from(document.getElementById("addressList").options).map(opt => opt.value);
+            if (!addressOptions.includes(address)) {
+                alert("❌ Ошибка: Такого адреса нет в базе! Выберите адрес из выпадающего списка.");
+                return; // Останавливаем отправку!
+            }
+
+            // 2. Проверяем мастера (берем все варианты из datalist)
+            const masterOptions = Array.from(document.getElementById("mastersList").options).map(opt => opt.value);
+            if (!masterOptions.includes(master)) {
+                alert("❌ Ошибка: Такого мастера не существует! Выберите ФИО из выпадающего списка.");
+                return; // Останавливаем отправку!
+            }
+
+            // ===============================================
+
+            // Блокируем кнопку
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Отправляем...';
 
@@ -177,7 +198,6 @@
                 const response = await fetch(URL_GOOGLE_SERVER, { method: "POST", body: JSON.stringify(ticketData), headers: { "Content-Type": "text/plain;charset=utf-8" }});
                 await response.json();
                 
-                // Возвращаем кнопку в норму
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> Готово!';
                 btn.style.background = "#34c759";
@@ -252,7 +272,22 @@
             document.getElementById("editModal").style.display = "none";
         }
 
-        async function saveEdit() {
+            async function saveEdit() {
+            const newAddress = document.getElementById("editAddress").value.trim();
+            const newProblem = document.getElementById("editProblem").value.trim();
+            const newMaster = document.getElementById("editMaster").value.trim();
+            
+            // === ЗАЩИТА ПРИ РЕДАКТИРОВАНИИ ===
+            const addressOptions = Array.from(document.getElementById("addressList").options).map(opt => opt.value);
+            if (!addressOptions.includes(newAddress)) {
+                alert("❌ Ошибка: Такого адреса нет в базе!"); return;
+            }
+            const masterOptions = Array.from(document.getElementById("mastersList").options).map(opt => opt.value);
+            if (!masterOptions.includes(newMaster)) {
+                alert("❌ Ошибка: Такого мастера не существует!"); return;
+            }
+            // ==================================
+
             const btn = document.getElementById("btnSaveEdit");
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохраняем...';
@@ -260,9 +295,9 @@
             const editData = {
                 action: "editTicket",
                 ticketId: currentEditId,
-                address: document.getElementById("editAddress").value,
-                problem: document.getElementById("editProblem").value,
-                masterName: document.getElementById("editMaster").value
+                address: newAddress,
+                problem: newProblem,
+                masterName: newMaster
             };
 
             try {
@@ -270,7 +305,7 @@
                 closeEditModal();
                 btn.disabled = false;
                 btn.innerHTML = '💾 Сохранить изменения';
-                loadMyTickets(); // Перезагружаем список, чтобы увидеть изменения
+                loadMyTickets(); 
             } catch (error) {
                 alert("Ошибка сохранения");
                 btn.disabled = false;
