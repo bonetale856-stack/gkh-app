@@ -3,18 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="robots" content="noindex, nofollow">
     <title>Диспетчер</title>
-    
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 8px;}
         .status-new { background: #e5f1ff; color: #007aff; }
         .status-done { background: #e8f5e9; color: #34c759; }
-        .ticket-info { font-size: 13px; color: #8e8e93; margin-top: 8px; border-top: 1px solid #f2f2f7; padding-top: 8px;}
+        .ticket-info { font-size: 13px; color: #8e8e93; margin-top: 8px; border-top: 1px solid #f2f2f7; padding-top: 8px; display: flex; justify-content: space-between; align-items: center;}
         
-        /* Стили для профиля и статистики (как у мастера) */
         .stats-grid { display: flex; gap: 10px; margin-bottom: 20px; }
         .stat-box { flex: 1; background: #f9f9f9; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #eee; }
         .stat-num { font-size: 24px; font-weight: 800; color: #007aff; margin-bottom: 5px; }
@@ -24,38 +21,40 @@
         .badge-icon { font-size: 35px; color: #007aff; }
         .badge-text h4 { margin: 0 0 5px 0; color: #1c1c1e; font-size: 16px;}
         .badge-text p { margin: 0; font-size: 13px; color: #0d47a1;}
+
+        /* Кнопка редактирования в карточке */
+        .edit-btn { background: #f2f2f7; color: #007aff; border: none; padding: 6px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 12px;}
+        
+        /* Модальное окно редактирования */
+        #editModal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; padding: 20px;}
+        .modal-content { background: white; padding: 20px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: fadeIn 0.2s;}
     </style>
 </head>
 <body>
-
-    <!-- ЭКРАН ЗАГРУЗКИ -->
-    <div id="globalLoader" class="global-loader">
-        <i class="fa-solid fa-circle-notch fa-spin"></i>
-        <div id="loaderText" class="loader-text">Загрузка...</div>
-    </div>
 
     <div class="top-bar" id="headerTitle">Новая заявка</div>
 
     <div class="container">
         
-        <!-- ЭКРАН 1: СОЗДАТЬ ЗАЯВКУ -->
+        <!-- ЭКРАН 1: СОЗДАТЬ -->
         <div id="tab-create" class="tab-content active">
             <div class="card">
                 <div class="form-group">
                     <label><i class="fa-solid fa-location-dot"></i> Адрес:</label>
-                    <input type="text" class="form-control" id="address" list="addressList" placeholder="Начните вводить адрес...">
+                    <input type="text" class="form-control" id="address" list="addressList" placeholder="Адрес...">
                     <datalist id="addressList"></datalist>
                 </div>
                 <div class="form-group">
                     <label><i class="fa-solid fa-triangle-exclamation"></i> Проблема:</label>
-                    <textarea class="form-control" id="problem" rows="3" placeholder="Опишите, что случилось..."></textarea>
+                    <textarea class="form-control" id="problem" rows="3" placeholder="Что случилось..."></textarea>
                 </div>
                 <div class="form-group">
                     <label><i class="fa-solid fa-helmet-safety"></i> Назначить мастера:</label>
-                    <input type="text" class="form-control" id="masterInput" list="mastersList" placeholder="Начните вводить ФИО...">
+                    <input type="text" class="form-control" id="masterInput" list="mastersList" placeholder="ФИО мастера...">
                     <datalist id="mastersList"></datalist>
                 </div>
-                <button class="btn btn-primary" onclick="sendTicket()">
+                <!-- Кнопка теперь сама работает индикатором загрузки -->
+                <button class="btn btn-primary" id="btnSubmitTicket" onclick="sendTicket()">
                     <i class="fa-solid fa-paper-plane"></i> Отправить заявку
                 </button>
             </div>
@@ -64,10 +63,9 @@
         <!-- ЭКРАН 2: ИСТОРИЯ ЗАЯВОК -->
         <div id="tab-list" class="tab-content">
             <div id="ticketsContainer"></div>
-            <div id="noTicketsMsg" class="card" style="display: none; text-align: center; color: #8e8e93; padding: 40px 20px;">
-                <i class="fa-solid fa-folder-open" style="font-size: 40px; margin-bottom: 15px; color: #d1d1d6;"></i>
-                <h3 style="margin-top: 0; color: #1c1c1e;">Пусто</h3>
-                <p>Вы еще не создали ни одной заявки.</p>
+            <div id="noTicketsMsg" class="card" style="text-align: center; color: #8e8e93; padding: 40px 20px;">
+                <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px; margin-bottom: 10px;"></i>
+                <p>Загрузка истории...</p>
             </div>
         </div>
 
@@ -78,61 +76,57 @@
                 <p style="margin: 0; color: #8e8e93; font-weight: 600;">Диспетчер</p>
             </div>
 
-            <!-- Мотивация -->
-            <div class="card" style="background: linear-gradient(135deg, #007aff, #0056b3); color: white; border: none; margin-bottom: 15px;">
-                <h3 style="margin: 0 0 5px 0;"><i class="fa-solid fa-headset"></i> На связи!</h3>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9;">Ваш голос успокаивает жильцов. Спасибо за вашу выдержку!</p>
-            </div>
-
-            <!-- Карточка Достижения -->
             <div class="badge-card" id="achievementBadge">
                 <div class="badge-icon"><i class="fa-solid fa-medal" id="badgeIcon"></i></div>
                 <div class="badge-text">
-                    <h4 id="badgeTitle">Загружаем ранг...</h4>
-                    <p id="badgeDesc">...</p>
+                    <h4 id="badgeTitle">Загружаем статус...</h4><p id="badgeDesc">...</p>
                 </div>
             </div>
 
-            <!-- Статистика -->
             <div class="stats-grid">
-                <div class="stat-box">
-                    <div class="stat-num" id="statMonthly">0</div>
-                    <div class="stat-label">Оформлено<br><span style="color:#007aff; font-size:10px;">в этом месяце</span></div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-num" id="statAllTime" style="color: #34c759;">0</div>
-                    <div class="stat-label">Всего заявок<br><span style="color:#007aff; font-size:10px;">за всё время</span></div>
-                </div>
+                <div class="stat-box"><div class="stat-num" id="statMonthly">0</div><div class="stat-label">В этом месяце</div></div>
+                <div class="stat-box"><div class="stat-num" id="statAllTime" style="color: #34c759;">0</div><div class="stat-label">За всё время</div></div>
             </div>
-
-            <button class="btn btn-danger" onclick="logout()">
-                <i class="fa-solid fa-arrow-right-from-bracket"></i> Выйти из аккаунта
-            </button>
+            <button class="btn btn-danger" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Выйти</button>
         </div>
 
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ -->
+    <div id="editModal">
+        <div class="modal-content">
+            <h3 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">Редактировать заявку</h3>
+            <div class="form-group">
+                <label>Адрес:</label>
+                <input type="text" class="form-control" id="editAddress">
+            </div>
+            <div class="form-group">
+                <label>Проблема:</label>
+                <textarea class="form-control" id="editProblem" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Мастер:</label>
+                <input type="text" class="form-control" id="editMaster">
+            </div>
+            <button class="btn btn-primary" id="btnSaveEdit" onclick="saveEdit()" style="margin-bottom: 10px;">💾 Сохранить изменения</button>
+            <button class="btn" style="background: #f2f2f7; color: #ff3b30;" onclick="closeEditModal()">Отмена</button>
+        </div>
     </div>
 
     <!-- НИЖНЕЕ МЕНЮ -->
     <div class="bottom-nav">
-        <div class="nav-item active" onclick="switchTab('create')" id="nav-create">
-            <i class="fa-solid fa-plus"></i><span>Создать</span>
-        </div>
-        <div class="nav-item" onclick="switchTab('list')" id="nav-list">
-            <i class="fa-solid fa-folder-open"></i><span>Заявки</span>
-        </div>
-        <div class="nav-item" onclick="switchTab('profile')" id="nav-profile">
-            <i class="fa-solid fa-user"></i><span>Профиль</span>
-        </div>
+        <div class="nav-item active" onclick="switchTab('create')" id="nav-create"><i class="fa-solid fa-plus"></i><span>Создать</span></div>
+        <div class="nav-item" onclick="switchTab('list')" id="nav-list"><i class="fa-solid fa-folder-open"></i><span>Заявки</span></div>
+        <div class="nav-item" onclick="switchTab('profile')" id="nav-profile"><i class="fa-solid fa-user"></i><span>Профиль</span></div>
     </div>
 
     <script>
         // === ВАЖНО: ВСТАВЬ СВОЮ ССЫЛКУ НИЖЕ ===
-        const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
+        const URL_GOOGLE_SERVER = "ТВОЯ_ДЛИННАЯ_ССЫЛКА_ИЗ_ГУГЛА_ВСТАВЛЯТЬ_СЮДА";
         
         let currentUser = null;
-
-        function showLoader(text) { document.getElementById("loaderText").innerText = text; document.getElementById("globalLoader").classList.add("active"); }
-        function hideLoader() { document.getElementById("globalLoader").classList.remove("active"); }
+        let myTicketsArray = []; // Сохраняем загруженные заявки тут
+        let currentEditId = null;
 
         window.onload = async function() {
             const userStr = localStorage.getItem("currentUser");
@@ -141,7 +135,14 @@
             if (currentUser.role !== "диспетчер") { window.location.href = "index.html"; return; }
 
             document.getElementById("profileName").innerText = currentUser.name;
-            await loadDatabase();
+            
+            // Грузим базы тихо в фоне
+            fetch(URL_GOOGLE_SERVER + "?action=getAddresses").then(r => r.json()).then(addrs => {
+                const dl = document.getElementById("addressList"); addrs.forEach(a => dl.innerHTML += `<option value="${a}">`);
+            });
+            fetch(URL_GOOGLE_SERVER).then(r => r.json()).then(users => {
+                const dl = document.getElementById("mastersList"); users.filter(u => u.role === "мастер").forEach(u => dl.innerHTML += `<option value="${u.name}">`);
+            });
         };
 
         function switchTab(tabName) {
@@ -149,119 +150,150 @@
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
             document.getElementById('nav-' + tabName).classList.add('active');
-            
             const titles = { 'create': 'Новая заявка', 'list': 'История заявок', 'profile': 'Профиль' };
             document.getElementById('headerTitle').innerText = titles[tabName];
 
             if (tabName === 'list') loadMyTickets();
-            if (tabName === 'profile') loadStats(); // Загружаем статистику профиля!
-        }
-
-        async function loadDatabase() {
-            showLoader("Подгрузка базы...");
-            try {
-                const addrResponse = await fetch(URL_GOOGLE_SERVER + "?action=getAddresses");
-                const addresses = await addrResponse.json();
-                const addrDatalist = document.getElementById("addressList");
-                addresses.forEach(addr => { let option = document.createElement("option"); option.value = addr; addrDatalist.appendChild(option); });
-
-                const usersResponse = await fetch(URL_GOOGLE_SERVER);
-                const users = await usersResponse.json();
-                const masterDatalist = document.getElementById("mastersList");
-                users.forEach(user => {
-                    if (user.role === "мастер") { let option = document.createElement("option"); option.value = user.name; masterDatalist.appendChild(option); }
-                });
-                hideLoader();
-            } catch (error) { hideLoader(); alert("Ошибка загрузки базы"); }
-        }
-
-        // НОВОЕ: Загрузка статистики Диспетчера
-        async function loadStats() {
-            showLoader("Считаем заявки...");
-            try {
-                const response = await fetch(URL_GOOGLE_SERVER + "?action=getDispatcherStats&dispatcherName=" + encodeURIComponent(currentUser.name));
-                const stats = await response.json();
-                hideLoader();
-
-                document.getElementById("statMonthly").innerText = stats.monthlyTickets;
-                document.getElementById("statAllTime").innerText = stats.allTimeTickets;
-
-                // Логика рангов
-                const titleEl = document.getElementById("badgeTitle");
-                const descEl = document.getElementById("badgeDesc");
-                const iconEl = document.getElementById("badgeIcon");
-                
-                const totalAllTime = stats.allTimeTickets;
-
-                if (totalAllTime < 50) {
-                    titleEl.innerText = "Надежный тыл 🥉";
-                    descEl.innerText = `Вы спасаете жильцов! До следующего ранга: ${50 - totalAllTime} шт.`;
-                    iconEl.className = "fa-solid fa-headset";
-                    iconEl.style.color = "#8d6e63"; // Бронза
-                } else if (totalAllTime < 200) {
-                    titleEl.innerText = "Мастер логистики 🥈";
-                    descEl.innerText = `Ни одна заявка не потеряется. Вы супер!`;
-                    iconEl.className = "fa-solid fa-satellite-dish";
-                    iconEl.style.color = "#78909c"; // Серебро
-                } else {
-                    titleEl.innerText = "Вы опора компании 🥇";
-                    descEl.innerText = `Вы контролируете весь город! Легендарный статус.`;
-                    iconEl.className = "fa-solid fa-microphone-lines";
-                    iconEl.style.color = "#ffb300"; // Золото
-                }
-
-            } catch (error) { 
-                hideLoader(); 
-                alert("Ошибка загрузки профиля."); 
-            }
+            if (tabName === 'profile') loadStats();
         }
 
         async function sendTicket() {
             const address = document.getElementById("address").value.trim();
             const problem = document.getElementById("problem").value.trim();
             const master = document.getElementById("masterInput").value.trim();
+            const btn = document.getElementById("btnSubmitTicket");
+
             if (!address || !problem || !master) { alert("Заполните все поля!"); return; }
 
-            showLoader("Отправка заявки...");
-            const ticketData = { dispatcherName: currentUser.name, address: address, problem: problem, masterName: master };
+            // Блокируем кнопку и меняем текст (ВМЕСТО ПОЛНОЭКРАННОЙ АНИМАЦИИ)
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Отправляем...';
+
+            const ticketData = { action: "createTicket", dispatcherName: currentUser.name, address: address, problem: problem, masterName: master };
             try {
                 const response = await fetch(URL_GOOGLE_SERVER, { method: "POST", body: JSON.stringify(ticketData), headers: { "Content-Type": "text/plain;charset=utf-8" }});
-                const result = await response.json();
-                if (result.status === "success") {
-                    hideLoader();
-                    alert("Успешно отправлено!");
-                    document.getElementById("address").value = ""; document.getElementById("problem").value = ""; document.getElementById("masterInput").value = "";
-                }
-            } catch (error) { hideLoader(); alert("Ошибка связи."); }
+                await response.json();
+                
+                // Возвращаем кнопку в норму
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Готово!';
+                btn.style.background = "#34c759";
+                
+                document.getElementById("address").value = ""; document.getElementById("problem").value = ""; document.getElementById("masterInput").value = "";
+                
+                setTimeout(() => { 
+                    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Отправить заявку'; 
+                    btn.style.background = "#007aff";
+                }, 2000);
+            } catch (error) { 
+                btn.disabled = false; btn.innerHTML = 'Ошибка. Повторить'; btn.style.background = "#ff3b30";
+            }
         }
 
         async function loadMyTickets() {
-            showLoader("Обновление списка...");
-            document.getElementById("ticketsContainer").innerHTML = "";
-            document.getElementById("noTicketsMsg").style.display = "none";
+            const container = document.getElementById("ticketsContainer");
+            const msg = document.getElementById("noTicketsMsg");
+            
+            container.innerHTML = "";
+            msg.style.display = "block";
+            msg.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px; margin-bottom: 10px;"></i><p>Загрузка истории...</p>';
 
             try {
                 const response = await fetch(URL_GOOGLE_SERVER + "?action=getDispatcherTickets&dispatcherName=" + encodeURIComponent(currentUser.name));
-                const tickets = await response.json();
-                hideLoader();
+                myTicketsArray = await response.json();
+                msg.style.display = "none";
 
-                if (tickets.length === 0) { document.getElementById("noTicketsMsg").style.display = "block"; return; }
+                if (myTicketsArray.length === 0) { 
+                    msg.style.display = "block"; 
+                    msg.innerHTML = '<i class="fa-solid fa-folder-open" style="font-size: 40px; margin-bottom: 15px; color: #d1d1d6;"></i><h3>Пусто</h3>';
+                    return; 
+                }
 
-                const container = document.getElementById("ticketsContainer");
-                tickets.forEach(ticket => {
+                myTicketsArray.forEach(ticket => {
                     const div = document.createElement("div");
                     div.className = "card";
                     let badgeClass = ticket.status === "Новая" ? "status-new" : "status-done";
-                    let statusIcon = ticket.status === "Новая" ? "fa-clock" : "fa-check-double";
+                    
+                    // Кнопка редактирования появляется ТОЛЬКО если статус "Новая"
+                    let editBtnHtml = ticket.status === "Новая" 
+                        ? `<button class="edit-btn" onclick="openEditModal(${ticket.id})"><i class="fa-solid fa-pen"></i> Изменить</button>` 
+                        : `<span style="color:#34c759; font-size:12px; font-weight:bold;"><i class="fa-solid fa-check-double"></i> Закрыта</span>`;
+
                     div.innerHTML = `
-                        <div class="status-badge ${badgeClass}"><i class="fa-solid ${statusIcon}"></i> ${ticket.status}</div>
+                        <div class="status-badge ${badgeClass}">${ticket.status}</div>
                         <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${ticket.address}</div>
                         <div style="font-size: 14px; color: #3a3a3c;">${ticket.problem}</div>
-                        <div class="ticket-info"><div><i class="fa-regular fa-calendar-days"></i> ${ticket.date}</div><div style="margin-top: 4px;"><i class="fa-solid fa-helmet-safety"></i> Мастер: ${ticket.master}</div></div>
+                        <div class="ticket-info">
+                            <div><i class="fa-solid fa-helmet-safety"></i> ${ticket.master}</div>
+                            ${editBtnHtml}
+                        </div>
                     `;
                     container.appendChild(div);
                 });
-            } catch (error) { hideLoader(); alert('Ошибка загрузки истории.'); }
+            } catch (error) { msg.innerHTML = 'Ошибка сети'; }
+        }
+
+        // --- ЛОГИКА РЕДАКТИРОВАНИЯ ---
+        function openEditModal(id) {
+            currentEditId = id;
+            const ticket = myTicketsArray.find(t => t.id == id);
+            if(ticket) {
+                document.getElementById("editAddress").value = ticket.address;
+                document.getElementById("editProblem").value = ticket.problem;
+                document.getElementById("editMaster").value = ticket.master;
+                document.getElementById("editModal").style.display = "flex";
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById("editModal").style.display = "none";
+        }
+
+        async function saveEdit() {
+            const btn = document.getElementById("btnSaveEdit");
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохраняем...';
+
+            const editData = {
+                action: "editTicket",
+                ticketId: currentEditId,
+                address: document.getElementById("editAddress").value,
+                problem: document.getElementById("editProblem").value,
+                masterName: document.getElementById("editMaster").value
+            };
+
+            try {
+                await fetch(URL_GOOGLE_SERVER, { method: "POST", body: JSON.stringify(editData), headers: { "Content-Type": "text/plain;charset=utf-8" }});
+                closeEditModal();
+                btn.disabled = false;
+                btn.innerHTML = '💾 Сохранить изменения';
+                loadMyTickets(); // Перезагружаем список, чтобы увидеть изменения
+            } catch (error) {
+                alert("Ошибка сохранения");
+                btn.disabled = false;
+                btn.innerHTML = '💾 Сохранить изменения';
+            }
+        }
+        // ---------------------------------
+
+        async function loadStats() {
+            const titleEl = document.getElementById("badgeTitle");
+            titleEl.innerText = "Загрузка...";
+            try {
+                const response = await fetch(URL_GOOGLE_SERVER + "?action=getDispatcherStats&dispatcherName=" + encodeURIComponent(currentUser.name));
+                const stats = await response.json();
+
+                document.getElementById("statMonthly").innerText = stats.monthlyTickets;
+                document.getElementById("statAllTime").innerText = stats.allTimeTickets;
+
+                const descEl = document.getElementById("badgeDesc");
+                const iconEl = document.getElementById("badgeIcon");
+                
+                const t = stats.allTimeTickets;
+                if (t < 50) { titleEl.innerText = "Надежный тыл 🥉"; descEl.innerText = `Вы спасаете жильцов! До следующего ранга:: ${50 - t} шт.`; iconEl.className = "fa-solid fa-headset"; iconEl.style.color = "#8d6e63"; } 
+                else if (t < 200) { titleEl.innerText = "Мастер переговоров 🥈"; descEl.innerText = `Ни одна заявка не потеряется. Вы супер!`; iconEl.className = "fa-solid fa-satellite-dish"; iconEl.style.color = "#78909c"; } 
+                else { titleEl.innerText = "Вы опора компании 🥇"; descEl.innerText = `Вы контролируете весь город! Легендарный статус.`; iconEl.className = "fa-solid fa-microphone-lines"; iconEl.style.color = "#ffb300"; }
+            } catch (error) { titleEl.innerText = "Ошибка"; }
         }
 
         function logout() { localStorage.removeItem("currentUser"); window.location.href = "index.html"; }
