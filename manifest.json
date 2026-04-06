@@ -3,7 +3,7 @@
   "short_name": "ГИЛЬДИЯ",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f2f2f7",
+  "background_color": "#FFFFFF",
   "theme_color": "#007aff",
   "orientation": "portrait",
   "icons": [
