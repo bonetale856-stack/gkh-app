@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <!-- Делаем так, чтобы на телефоне смотрелось как приложение (без зума) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- ЗАЩИТА ОТ ЯНДЕКСА И ГУГЛА (чтобы левые не нашли сайт) -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>Вход в систему ЖКХ</title>
+    
+    <!-- Немного красоты (CSS стили прямо здесь для простоты) -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 350px;
+            text-align: center;
+        }
+        h2 { color: #333; margin-bottom: 20px; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:active { background-color: #0056b3; }
+        #status { margin-top: 15px; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <h2>Служба ЖКХ</h2>
+        <input type="text" id="userName" placeholder="Введите ваше ФИО (как в базе)" autocomplete="off">
+        <input type="password" id="userPin" placeholder="ПИН-код (4 цифры)" pattern="[0-9]*" inputmode="numeric">
+        <button onclick="login()">Войти в систему</button>
+        <div id="status"></div>
+    </div>
+
+    <!-- Логика работы приложения (JavaScript) -->
+    <script>
+        // ВАЖНО! Вставь сюда свою ссылку из Google Apps Script (между кавычками)
+        const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycbwp4B3v63EyunC8K5kAAmbWSc4t0vAaErHnfMy4489LBgdtGnDIGYplGqk6haFTSePouQ/exec";
+
+        async function login() {
+            const nameInput = document.getElementById("userName").value.trim();
+            const pinInput = document.getElementById("userPin").value.trim();
+            const statusText = document.getElementById("status");
+
+            if (!nameInput || !pinInput) {
+                statusText.innerHTML = "❌ Заполните ФИО и ПИН-код";
+                statusText.style.color = "red";
+                return;
+            }
+
+            statusText.innerHTML = "⏳ Проверка данных... Подождите.";
+            statusText.style.color = "#007bff";
+
+            try {
+                // Идем к нашему Гугл Серверу и просим список людей
+                const response = await fetch(URL_GOOGLE_SERVER);
+                const users = await response.json();
+
+                // Ищем человека в списке
+                const foundUser = users.find(user => user.name === nameInput && String(user.pin) === pinInput);
+
+                if (foundUser) {
+                    statusText.innerHTML = "✅ Успешно! Входим...";
+                    statusText.style.color = "green";
+                    
+                    // Запоминаем в памяти телефона, кто вошел
+                    localStorage.setItem("currentUser", JSON.stringify(foundUser));
+                    
+                    // Позже тут будет переход на страницу с заявками
+                    alert("Привет, " + foundUser.name + "! Твоя роль: " + foundUser.role);
+                } else {
+                    statusText.innerHTML = "❌ Ошибка: Неверное ФИО или ПИН-код";
+                    statusText.style.color = "red";
+                }
+            } catch (error) {
+                statusText.innerHTML = "❌ Ошибка связи с сервером.";
+                statusText.style.color = "red";
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
