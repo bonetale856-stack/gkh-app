@@ -203,6 +203,7 @@
         }
 
         // Загрузка статистики (Геймификация)
+                // Загрузка статистики (Геймификация)
         async function loadStats() {
             showLoader("Считаем успехи...");
             try {
@@ -210,27 +211,30 @@
                 const stats = await response.json();
                 hideLoader();
 
-                document.getElementById("statTickets").innerText = stats.totalTickets;
-                document.getElementById("statMoney").innerText = stats.totalMoney + " ₽";
+                // ВЫВОДИМ ДАННЫЕ ЗА ТЕКУЩИЙ МЕСЯЦ
+                document.getElementById("statTickets").innerText = stats.monthlyTickets;
+                document.getElementById("statMoney").innerText = stats.monthlyMoney + " ₽";
 
-                // Логика рангов
+                // Логика рангов (СЧИТАЕМ ЗА ВСЁ ВРЕМЯ)
                 const titleEl = document.getElementById("badgeTitle");
                 const descEl = document.getElementById("badgeDesc");
                 const iconEl = document.getElementById("badgeIcon");
+                
+                const totalAllTime = stats.allTimeTickets;
 
-                if (stats.totalTickets < 20) {
+                if (totalAllTime < 20) {
                     titleEl.innerText = "Новичок 🥉";
-                    descEl.innerText = "Хорошее начало! Выполните 20 заявки для повышения.";
+                    descEl.innerText = `Хорошее начало! Выполнено за всё время: ${totalAllTime} шт.`;
                     iconEl.className = "fa-solid fa-seedling";
                     iconEl.style.color = "#8d6e63"; // Коричневый
-                } else if (stats.totalTickets < 50) {
+                } else if (totalAllTime < 50) {
                     titleEl.innerText = "Опытный мастер 🥈";
-                    descEl.innerText = "Вы уверенно справляетесь. Цель: 50 заявок.";
+                    descEl.innerText = `Вы уверенно справляетесь. Выполнено: ${totalAllTime} шт.`;
                     iconEl.className = "fa-solid fa-shield-halved";
                     iconEl.style.color = "#78909c"; // Серебро
                 } else {
                     titleEl.innerText = "Легенда ЖКХ 🥇";
-                    descEl.innerText = "Ваш профиль сияет золотом. Вы топ-сотрудник!";
+                    descEl.innerText = `Ваш профиль сияет золотом. Выполнено: ${totalAllTime} шт.`;
                     iconEl.className = "fa-solid fa-crown";
                     iconEl.style.color = "#ffb300"; // Золото
                 }
