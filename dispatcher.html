@@ -244,47 +244,73 @@
             }
         }
 
-        async function loadMyTickets() {
+                async function loadMyTickets() {
             const container = document.getElementById("ticketsContainer");
             const msg = document.getElementById("noTicketsMsg");
             
-            container.innerHTML = "";
-            msg.style.display = "block";
-            msg.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px; margin-bottom: 10px;"></i><p>Загрузка истории...</p>';
+            // 1. МАГИЯ КЭША: Пытаемся сразу показать то, что сохранили в прошлый раз!
+            const cachedTickets = localStorage.getItem("cachedDispatcherTickets_" + currentUser.name);
+            if (cachedTickets) {
+                renderTicketsList(JSON.parse(cachedTickets)); // Моментальная отрисовка!
+            } else {
+                // Если кэша нет (первый вход) - показываем лоадер
+                container.innerHTML = "";
+                msg.style.display = "block";
+                msg.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px; margin-bottom: 10px;"></i><p>Загрузка истории...</p>';
+            }
 
+            // 2. Идем в Гугл за свежими данными (в фоне)
             try {
                 const response = await fetch(URL_GOOGLE_SERVER + "?action=getDispatcherTickets&dispatcherName=" + encodeURIComponent(currentUser.name));
-                myTicketsArray = await response.json();
-                msg.style.display = "none";
+                const freshTickets = await response.json();
+                
+                // Сохраняем свежие данные в кэш телефона для следующего раза
+                localStorage.setItem("cachedDispatcherTickets_" + currentUser.name, JSON.stringify(freshTickets));
+                
+                // Отрисовываем свежий список
+                renderTicketsList(freshTickets);
 
-                if (myTicketsArray.length === 0) { 
-                    msg.style.display = "block"; 
-                    msg.innerHTML = '<i class="fa-solid fa-folder-open" style="font-size: 40px; margin-bottom: 15px; color: #d1d1d6;"></i><h3>Пусто</h3>';
-                    return; 
-                }
+            } catch (error) { 
+                // Если нет интернета, а кэш пустой
+                if (!cachedTickets) msg.innerHTML = 'Ошибка сети. Проверьте интернет.'; 
+            }
+        }
 
-                myTicketsArray.forEach(ticket => {
-                    const div = document.createElement("div");
-                    div.className = "card";
-                    let badgeClass = ticket.status === "Новая" ? "status-new" : "status-done";
-                    
-                    // Кнопка редактирования появляется ТОЛЬКО если статус "Новая"
-                    let editBtnHtml = ticket.status === "Новая" 
-                        ? `<button class="edit-btn" onclick="openEditModal(${ticket.id})"><i class="fa-solid fa-pen"></i> Изменить</button>` 
-                        : `<span style="color:#34c759; font-size:12px; font-weight:bold;"><i class="fa-solid fa-check-double"></i> Закрыта</span>`;
+        // Вспомогательная функция, которая просто рисует HTML (чтобы не дублировать код)
+        function renderTicketsList(ticketsArray) {
+            myTicketsArray = ticketsArray; // Обновляем глобальный массив для редактирования
+            const container = document.getElementById("ticketsContainer");
+            const msg = document.getElementById("noTicketsMsg");
+            
+            msg.style.display = "none";
+            container.innerHTML = "";
 
-                    div.innerHTML = `
-                        <div class="status-badge ${badgeClass}">${ticket.status}</div>
-                        <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${ticket.address}</div>
-                        <div style="font-size: 14px; color: #3a3a3c;">${ticket.problem}</div>
-                        <div class="ticket-info">
-                            <div><i class="fa-solid fa-helmet-safety"></i> ${ticket.master}</div>
-                            ${editBtnHtml}
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
-            } catch (error) { msg.innerHTML = 'Ошибка сети'; }
+            if (ticketsArray.length === 0) { 
+                msg.style.display = "block"; 
+                msg.innerHTML = '<i class="fa-solid fa-folder-open" style="font-size: 40px; margin-bottom: 15px; color: #d1d1d6;"></i><h3>Пусто</h3>';
+                return; 
+            }
+
+            ticketsArray.forEach(ticket => {
+                const div = document.createElement("div");
+                div.className = "card";
+                let badgeClass = ticket.status === "Новая" ? "status-new" : "status-done";
+                
+                let editBtnHtml = ticket.status === "Новая" 
+                    ? `<button class="edit-btn" onclick="openEditModal(${ticket.id})"><i class="fa-solid fa-pen"></i> Изменить</button>` 
+                    : `<span style="color:#34c759; font-size:12px; font-weight:bold;"><i class="fa-solid fa-check-double"></i> Закрыта</span>`;
+
+                div.innerHTML = `
+                    <div class="status-badge ${badgeClass}">${ticket.status}</div>
+                    <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${ticket.address}</div>
+                    <div style="font-size: 14px; color: #3a3a3c;">${ticket.problem}</div>
+                    <div class="ticket-info">
+                        <div><i class="fa-solid fa-helmet-safety"></i> ${ticket.master}</div>
+                        ${editBtnHtml}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
         }
 
         // --- ЛОГИКА РЕДАКТИРОВАНИЯ ---
@@ -345,24 +371,50 @@
         }
         // ---------------------------------
 
+                // Умная загрузка профиля (С кэшированием)
         async function loadStats() {
             const titleEl = document.getElementById("badgeTitle");
-            titleEl.innerText = "Загрузка...";
+            
+            // 1. Ищем старые данные в памяти телефона
+            const cachedStats = localStorage.getItem("cachedDispatcherStats_" + currentUser.name);
+            if (cachedStats) {
+                renderDispatcherStats(JSON.parse(cachedStats)); // Моментальная отрисовка
+            } else {
+                titleEl.innerText = "Загрузка..."; // Лоадер для первого раза
+            }
+
+            // 2. Идем в Гугл за свежими цифрами в фоне
             try {
                 const response = await fetch(URL_GOOGLE_SERVER + "?action=getDispatcherStats&dispatcherName=" + encodeURIComponent(currentUser.name));
                 const stats = await response.json();
 
-                document.getElementById("statMonthly").innerText = stats.monthlyTickets;
-                document.getElementById("statAllTime").innerText = stats.allTimeTickets;
-
-                const descEl = document.getElementById("badgeDesc");
-                const iconEl = document.getElementById("badgeIcon");
+                // Сохраняем в память
+                localStorage.setItem("cachedDispatcherStats_" + currentUser.name, JSON.stringify(stats));
                 
-                const t = stats.allTimeTickets;
-                if (t < 50) { titleEl.innerText = "Надежный тыл 🥉"; descEl.innerText = `Вы спасаете жильцов! До следующего ранга:: ${50 - t} шт.`; iconEl.className = "fa-solid fa-headset"; iconEl.style.color = "#8d6e63"; } 
-                else if (t < 200) { titleEl.innerText = "Мастер переговоров 🥈"; descEl.innerText = `Ни одна заявка не потеряется. Вы супер!`; iconEl.className = "fa-solid fa-satellite-dish"; iconEl.style.color = "#78909c"; } 
-                else { titleEl.innerText = "Вы опора компании 🥇"; descEl.innerText = `Вы контролируете весь город! Легендарный статус.`; iconEl.className = "fa-solid fa-microphone-lines"; iconEl.style.color = "#ffb300"; }
-            } catch (error) { titleEl.innerText = "Ошибка"; }
+                // Перерисовываем на свежее
+                renderDispatcherStats(stats);
+            } catch (error) { 
+                if (!cachedStats) titleEl.innerText = "Ошибка загрузки"; 
+            }
+        }
+
+        // Вспомогательная функция отрисовки
+        function renderDispatcherStats(stats) {
+            document.getElementById("statMonthly").innerText = stats.monthlyTickets;
+            document.getElementById("statAllTime").innerText = stats.allTimeTickets;
+
+            const titleEl = document.getElementById("badgeTitle");
+            const descEl = document.getElementById("badgeDesc");
+            const iconEl = document.getElementById("badgeIcon");
+            
+            const t = stats.allTimeTickets;
+            if (t < 50) { 
+                titleEl.innerText = "Надежный тыл 🥉"; descEl.innerText = `До следующего ранга: ${50 - t} шт.`; iconEl.className = "fa-solid fa-headset"; iconEl.style.color = "#8d6e63"; 
+            } else if (t < 200) { 
+                titleEl.innerText = "Мастер логистики 🥈"; descEl.innerText = `Вы супер!`; iconEl.className = "fa-solid fa-satellite-dish"; iconEl.style.color = "#78909c"; 
+            } else { 
+                titleEl.innerText = "Бог телефонии 🥇"; descEl.innerText = `Легендарный статус.`; iconEl.className = "fa-solid fa-microphone-lines"; iconEl.style.color = "#ffb300"; 
+            }
         }
 
         function logout() { localStorage.removeItem("currentUser"); window.location.href = "index.html"; }
