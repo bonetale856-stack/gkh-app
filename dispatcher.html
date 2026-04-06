@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Рабочее место Диспетчера</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        h2 { color: #333; margin-top: 0; border-bottom: 2px solid #007bff; padding-bottom: 10px;}
+        label { font-weight: bold; color: #555; display: block; margin-top: 15px; margin-bottom: 5px;}
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button.btn-submit {
+            width: 100%;
+            padding: 14px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button.btn-submit:active { background-color: #218838; }
+        
+        button.btn-logout {
+            width: 100%;
+            padding: 10px;
+            background-color: transparent;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+            border-radius: 8px;
+            margin-top: 15px;
+            cursor: pointer;
+        }
+        #status { margin-top: 15px; font-weight: bold; text-align: center; }
+        .loader { font-size: 12px; color: #888; text-align: center; margin-bottom: 10px;}
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2 id="welcomeMsg">Диспетчер</h2>
+        
+        <div id="loading" class="loader">⏳ Подгружаем базу адресов и мастеров...</div>
+
+        <label>Адрес (начните вводить):</label>
+        <input type="text" id="address" list="addressList" placeholder="Например: ул. Ленина...">
+        <!-- datalist - это встроенная магия HTML для автозаполнения -->
+        <datalist id="addressList"></datalist>
+
+        <label>Описание проблемы:</label>
+        <textarea id="problem" rows="3" placeholder="Что случилось? (протечка, нет света и т.д.)"></textarea>
+
+        <label>Назначить мастера:</label>
+        <select id="masterSelect">
+            <option value="">Выберите мастера...</option>
+        </select>
+
+        <button class="btn-submit" onclick="sendTicket()">Отправить заявку</button>
+        <div id="status"></div>
+
+        <button class="btn-logout" onclick="logout()">Выйти из аккаунта</button>
+    </div>
+
+    <script>
+        // ВАЖНО! Вставь сюда свою ссылку
+        const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
+        
+        let currentUser = null;
+
+        // 1. Проверяем, кто зашел, сразу при загрузке страницы
+        window.onload = async function() {
+            const userStr = localStorage.getItem("currentUser");
+            if (!userStr) {
+                window.location.href = "index.html"; // Если не вошел - выкидываем на логин
+                return;
+            }
+            currentUser = JSON.parse(userStr);
+            
+            // Если сюда попытается зайти мастер - выкидываем на логин
+            if (currentUser.role !== "диспетчер") {
+                window.location.href = "index.html"; 
+                return;
+            }
+
+            document.getElementById("welcomeMsg").innerText = "Диспетчер: " + currentUser.name;
+            
+            // Запускаем подгрузку адресов и мастеров
+            await loadDatabase();
+        };
+
+        // 2. Скачиваем адреса и мастеров из Гугл Таблицы
+        async function loadDatabase() {
+            try {
+                // Запрашиваем адреса
+                const addrResponse = await fetch(URL_GOOGLE_SERVER + "?action=getAddresses");
+                const addresses = await addrResponse.json();
+                
+                const datalist = document.getElementById("addressList");
+                addresses.forEach(addr => {
+                    let option = document.createElement("option");
+                    option.value = addr;
+                    datalist.appendChild(option);
+                });
+
+                // Запрашиваем мастеров (получаем всех пользователей и фильтруем)
+                const usersResponse = await fetch(URL_GOOGLE_SERVER);
+                const users = await usersResponse.json();
+                
+                const masterSelect = document.getElementById("masterSelect");
+                users.forEach(user => {
+                    if (user.role === "мастер") {
+                        let option = document.createElement("option");
+                        option.value = user.name;
+                        option.text = user.name;
+                        masterSelect.appendChild(option);
+                    }
+                });
+
+                document.getElementById("loading").style.display = "none"; // Прячем надпись загрузки
+
+            } catch (error) {
+                document.getElementById("loading").innerText = "❌ Ошибка загрузки базы.";
+                document.getElementById("loading").style.color = "red";
+            }
+        }
+
+        // 3. Отправка новой заявки
+        async function sendTicket() {
+            const address = document.getElementById("address").value.trim();
+            const problem = document.getElementById("problem").value.trim();
+            const master = document.getElementById("masterSelect").value;
+            const statusDiv = document.getElementById("status");
+
+            if (!address || !problem || !master) {
+                statusDiv.innerText = "❌ Пожалуйста, заполните все поля";
+                statusDiv.style.color = "red";
+                return;
+            }
+
+            statusDiv.innerText = "⏳ Отправляем заявку в базу...";
+            statusDiv.style.color = "#007bff";
+
+            // Собираем данные в коробочку
+            const ticketData = {
+                dispatcherName: currentUser.name,
+                address: address,
+                problem: problem,
+                masterName: master
+            };
+
+            try {
+                // Отправляем POST запрос на наш сервер
+                const response = await fetch(URL_GOOGLE_SERVER, {
+                    method: "POST",
+                    body: JSON.stringify(ticketData),
+                    headers: {
+                        "Content-Type": "text/plain;charset=utf-8" // Чтобы Гугл не ругался
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === "success") {
+                    statusDiv.innerText = "✅ Заявка создана и передана мастеру!";
+                    statusDiv.style.color = "green";
+                    
+                    // Очищаем форму, чтобы диспетчер мог вводить следующую
+                    document.getElementById("address").value = "";
+                    document.getElementById("problem").value = "";
+                    document.getElementById("masterSelect").value = "";
+                    
+                    // Убираем сообщение об успехе через 3 секунды
+                    setTimeout(() => { statusDiv.innerText = ""; }, 3000);
+                } else {
+                    statusDiv.innerText = "❌ Ошибка при сохранении в таблицу.";
+                    statusDiv.style.color = "red";
+                }
+            } catch (error) {
+                statusDiv.innerText = "❌ Ошибка связи с сервером.";
+                statusDiv.style.color = "red";
+            }
+        }
+
+        // Кнопка выхода
+        function logout() {
+            localStorage.removeItem("currentUser"); // Стираем память телефона
+            window.location.href = "index.html";    // Возвращаем на экран логина
+        }
+    </script>
+</body>
+</html>
