@@ -133,21 +133,52 @@
         let currentUser = null;
         let activeTicketId = null;
 
-        window.onload = async function() {
+               window.onload = async function() {
             const userStr = localStorage.getItem("currentUser");
-            if (!userStr) { window.location.href = "index.html"; return; }
+            if (!userStr) { window.location.replace("index.html"); return; }
             currentUser = JSON.parse(userStr);
-            if (currentUser.role !== "мастер") { window.location.href = "index.html"; return; }
+            if (currentUser.role !== "мастер") { window.location.replace("index.html"); return; }
 
             document.getElementById("profileName").innerText = currentUser.name;
+            
+            // === МАГИЯ ДЛЯ КНОПКИ "НАЗАД" ===
+            if (!window.location.hash) {
+                history.replaceState({tab: 'tasks'}, "", "#tasks");
+            } else {
+                let hashTab = window.location.hash.replace('#', '');
+                applyTab(hashTab);
+            }
+
             await loadTickets();
         };
 
+        window.addEventListener('popstate', (event) => {
+            // Если открыт отчет, кнопка назад просто закроет его!
+            if (document.getElementById("reportScreen").style.display === "block") {
+                closeReport();
+                return;
+            }
+            if (event.state && event.state.tab) {
+                applyTab(event.state.tab);
+            } else {
+                applyTab('tasks');
+            }
+        });
+
         function switchTab(tabName) {
+            history.pushState({tab: tabName}, "", "#" + tabName);
+            applyTab(tabName);
+        }
+
+        function applyTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-            document.getElementById('tab-' + tabName).classList.add('active');
-            document.getElementById('nav-' + tabName).classList.add('active');
+            
+            const tabElement = document.getElementById('tab-' + tabName);
+            const navElement = document.getElementById('nav-' + tabName);
+            if(tabElement) tabElement.classList.add('active');
+            if(navElement) navElement.classList.add('active');
+            
             document.getElementById('headerTitle').innerText = tabName === 'tasks' ? 'Мои задачи' : 'Профиль мастера';
             
             if (tabName === 'profile') loadStats();
