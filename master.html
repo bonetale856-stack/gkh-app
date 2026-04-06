@@ -80,9 +80,11 @@
                     </div>
                 </div>
 
-                <div class="stats-grid">
-                    <div class="stat-box"><div class="stat-num" id="statTickets">0</div><div class="stat-label">Заявок<br><span style="color:#007aff; font-size:10px;">в этом месяце</span></div></div>
-                    <div class="stat-box"><div class="stat-num" id="statMoney" style="color: #34c759;">0 ₽</div><div class="stat-label">Заработано<br><span style="color:#007aff; font-size:10px;">в этом месяце</span></div></div>
+                    <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-num" id="statTickets">0</div>
+                        <div class="stat-label">Заявок выполнено<br><span style="color:#007aff; font-size:10px;">в этом месяце</span></div>
+                    </div>
                 </div>
 
                 <button class="btn btn-danger" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i> Выйти из аккаунта</button>
@@ -186,39 +188,35 @@
         }
 
                 // Умная загрузка профиля (С кэшированием)
-        async function loadStats() {
-            // 1. Ищем старые данные в памяти телефона
-            const cachedStats = localStorage.getItem("cachedMasterStats_" + currentUser.name);
-            
-            if (cachedStats) {
-                // Если кэш есть - моментально показываем профиль без загрузки!
-                document.getElementById("loadingProfile").style.display = "none";
-                document.getElementById("profileContent").style.display = "block";
-                renderMasterStats(JSON.parse(cachedStats));
-            } else {
-                // Если кэша нет (самый первый вход) - показываем лоадер
-                document.getElementById("loadingProfile").style.display = "block";
-                document.getElementById("profileContent").style.display = "none";
-            }
+                async function loadStats() {
+            document.getElementById("loadingProfile").style.display = "block";
+            document.getElementById("profileContent").style.display = "none";
 
-            // 2. Идем в Гугл за свежими цифрами в фоне
             try {
                 const response = await fetch(URL_GOOGLE_SERVER + "?action=getMasterStats&masterName=" + encodeURIComponent(currentUser.name));
                 const stats = await response.json();
                 
-                // Прячем лоадер, показываем контент
                 document.getElementById("loadingProfile").style.display = "none";
                 document.getElementById("profileContent").style.display = "block";
 
-                // Сохраняем свежие данные в память телефона
-                localStorage.setItem("cachedMasterStats_" + currentUser.name, JSON.stringify(stats));
+                // Оставили только заявки. Деньги скрыли!
+                document.getElementById("statTickets").innerText = stats.monthlyTickets;
+
+                const titleEl = document.getElementById("badgeTitle");
+                const descEl = document.getElementById("badgeDesc");
+                const iconEl = document.getElementById("badgeIcon");
                 
-                // Перерисовываем цифры на свежие
-                renderMasterStats(stats);
-            } catch (error) { 
-                if (!cachedStats) {
-                    document.getElementById("loadingProfile").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
+                const totalAllTime = stats.allTimeTickets;
+
+                if (totalAllTime < 20) {
+                    titleEl.innerText = "Новичок 🥉"; descEl.innerText = `Выполнено: ${totalAllTime} шт. Цель: 20`; iconEl.className = "fa-solid fa-seedling"; iconEl.style.color = "#8d6e63"; 
+                } else if (totalAllTime < 50) {
+                    titleEl.innerText = "Опытный мастер 🥈"; descEl.innerText = `Выполнено: ${totalAllTime} шт. Цель: 50`; iconEl.className = "fa-solid fa-shield-halved"; iconEl.style.color = "#78909c"; 
+                } else {
+                    titleEl.innerText = "Легенда ГИЛЬДИИ 🥇"; descEl.innerText = `Ваш профиль сияет золотом. Выполнено: ${totalAllTime} шт.`; iconEl.className = "fa-solid fa-crown"; iconEl.style.color = "#ffb300"; 
                 }
+            } catch (error) { 
+                document.getElementById("loadingProfile").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
             }
         }
 
