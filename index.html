@@ -98,8 +98,15 @@
                     // Запоминаем в памяти телефона, кто вошел
                     localStorage.setItem("currentUser", JSON.stringify(foundUser));
                     
-                    // Позже тут будет переход на страницу с заявками
-                    alert("Привет, " + foundUser.name + "! Твоя роль: " + foundUser.role);
+                   
+                    // Проверяем роль и перекидываем на нужную страницу
+                    if (foundUser.role === "диспетчер") {
+                        window.location.href = "dispatcher.html";
+                    } else if (foundUser.role === "мастер") {
+                        window.location.href = "master.html";
+                    } else {
+                        alert("Ошибка: Неизвестная роль!");
+                    }
                 } else {
                     statusText.innerHTML = "❌ Ошибка: Неверное ФИО или ПИН-код";
                     statusText.style.color = "red";
