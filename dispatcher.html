@@ -5,12 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
     <title>Диспетчер</title>
-    
-    <!-- Подключаем наш красивый CSS -->
     <link rel="stylesheet" href="styles.css">
-    
-    <!-- Подключаем иконки FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Стили для бейджиков статуса */
+        .status-badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; display: inline-block; margin-bottom: 8px;}
+        .status-new { background: #e5f1ff; color: #007aff; }
+        .status-done { background: #e8f5e9; color: #34c759; }
+        
+        .ticket-info { font-size: 13px; color: #8e8e93; margin-top: 8px; border-top: 1px solid #f2f2f7; padding-top: 8px;}
+    </style>
 </head>
 <body>
 
@@ -47,12 +51,15 @@
             </div>
         </div>
 
-        <!-- ЭКРАН 2: МОИ ЗАЯВКИ (Заглушка) -->
+        <!-- ЭКРАН 2: МОИ ЗАЯВКИ (Теперь он живой!) -->
         <div id="tab-list" class="tab-content">
-            <div class="card" style="text-align: center; color: #8e8e93; padding: 40px 20px;">
-                <i class="fa-solid fa-list-check" style="font-size: 40px; margin-bottom: 15px; color: #d1d1d6;"></i>
-                <h3 style="margin-top: 0; color: #1c1c1e;">Ваши заявки</h3>
-                <p>Здесь будет список созданных вами заявок и возможность их изменять. Скоро подключим!</p>
+            <div id="loadingTickets" class="loader" style="display:none;"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка заявок...</div>
+            <div id="ticketsContainer"></div>
+            
+            <div id="noTicketsMsg" class="card" style="display: none; text-align: center; color: #8e8e93; padding: 40px 20px;">
+                <i class="fa-solid fa-folder-open" style="font-size: 40px; margin-bottom: 15px; color: #d1d1d6;"></i>
+                <h3 style="margin-top: 0; color: #1c1c1e;">Пусто</h3>
+                <p>Вы еще не создали ни одной заявки.</p>
             </div>
         </div>
 
@@ -73,7 +80,7 @@
 
     </div>
 
-    <!-- НИЖНЕЕ МЕНЮ С ИКОНКАМИ FONTAWESOME -->
+    <!-- НИЖНЕЕ МЕНЮ -->
     <div class="bottom-nav">
         <div class="nav-item active" onclick="switchTab('create')" id="nav-create">
             <i class="fa-solid fa-plus"></i>
@@ -105,44 +112,39 @@
             await loadDatabase();
         };
 
-        // Логика переключения меню
+        // Переключение вкладок
         function switchTab(tabName) {
-            // Скрываем все экраны и делаем иконки серыми
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
             
-            // Показываем нужный экран и красим иконку в синий
             document.getElementById('tab-' + tabName).classList.add('active');
             document.getElementById('nav-' + tabName).classList.add('active');
             
-            // Меняем заголовок наверху
-            const titles = { 'create': 'Новая заявка', 'list': 'Мои заявки', 'profile': 'Профиль' };
+            const titles = { 'create': 'Новая заявка', 'list': 'История заявок', 'profile': 'Профиль' };
             document.getElementById('headerTitle').innerText = titles[tabName];
+
+            // ЕСЛИ НАЖАЛИ НА ВКЛАДКУ "ЗАЯВКИ" - ЗАГРУЖАЕМ ИХ!
+            if (tabName === 'list') {
+                loadMyTickets();
+            }
         }
 
-        // Подгрузка базы
+        // Загрузка адресов
         async function loadDatabase() {
             try {
                 const addrResponse = await fetch(URL_GOOGLE_SERVER + "?action=getAddresses");
                 const addresses = await addrResponse.json();
                 const addrDatalist = document.getElementById("addressList");
-                addresses.forEach(addr => {
-                    let option = document.createElement("option"); option.value = addr; addrDatalist.appendChild(option);
-                });
+                addresses.forEach(addr => { let option = document.createElement("option"); option.value = addr; addrDatalist.appendChild(option); });
 
                 const usersResponse = await fetch(URL_GOOGLE_SERVER);
                 const users = await usersResponse.json();
                 const masterDatalist = document.getElementById("mastersList");
                 users.forEach(user => {
-                    if (user.role === "мастер") {
-                        let option = document.createElement("option"); option.value = user.name; masterDatalist.appendChild(option);
-                    }
+                    if (user.role === "мастер") { let option = document.createElement("option"); option.value = user.name; masterDatalist.appendChild(option); }
                 });
                 document.getElementById("loading").style.display = "none";
-            } catch (error) {
-                document.getElementById("loading").innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Ошибка загрузки базы.';
-                document.getElementById("loading").style.color = "#ff3b30";
-            }
+            } catch (error) { document.getElementById("loading").innerHTML = 'Ошибка базы.'; }
         }
 
         // Отправка заявки
@@ -152,11 +154,7 @@
             const master = document.getElementById("masterInput").value.trim();
             const statusDiv = document.getElementById("status");
 
-            if (!address || !problem || !master) {
-                statusDiv.innerText = "Заполните все поля!";
-                statusDiv.style.color = "#ff3b30";
-                return;
-            }
+            if (!address || !problem || !master) { statusDiv.innerText = "Заполните все поля!"; statusDiv.style.color = "#ff3b30"; return; }
 
             statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Отправляем...';
             statusDiv.style.color = "#007aff";
@@ -164,31 +162,61 @@
             const ticketData = { dispatcherName: currentUser.name, address: address, problem: problem, masterName: master };
 
             try {
-                const response = await fetch(URL_GOOGLE_SERVER, {
-                    method: "POST",
-                    body: JSON.stringify(ticketData),
-                    headers: { "Content-Type": "text/plain;charset=utf-8" }
-                });
+                const response = await fetch(URL_GOOGLE_SERVER, { method: "POST", body: JSON.stringify(ticketData), headers: { "Content-Type": "text/plain;charset=utf-8" }});
                 const result = await response.json();
-                
                 if (result.status === "success") {
                     statusDiv.innerHTML = '<i class="fa-solid fa-check"></i> Успешно отправлено!';
                     statusDiv.style.color = "#34c759";
-                    document.getElementById("address").value = "";
-                    document.getElementById("problem").value = "";
-                    document.getElementById("masterInput").value = "";
+                    document.getElementById("address").value = ""; document.getElementById("problem").value = ""; document.getElementById("masterInput").value = "";
                     setTimeout(() => { statusDiv.innerText = ""; }, 3000);
                 }
+            } catch (error) { statusDiv.innerText = "Ошибка связи."; statusDiv.style.color = "#ff3b30"; }
+        }
+
+        // НОВОЕ: ЗАГРУЗКА ИСТОРИИ ЗАЯВОК ДИСПЕТЧЕРА
+        async function loadMyTickets() {
+            document.getElementById("loadingTickets").style.display = "block";
+            document.getElementById("ticketsContainer").innerHTML = "";
+            document.getElementById("noTicketsMsg").style.display = "none";
+
+            try {
+                const response = await fetch(URL_GOOGLE_SERVER + "?action=getDispatcherTickets&dispatcherName=" + encodeURIComponent(currentUser.name));
+                const tickets = await response.json();
+                
+                document.getElementById("loadingTickets").style.display = "none";
+
+                if (tickets.length === 0) {
+                    document.getElementById("noTicketsMsg").style.display = "block";
+                    return;
+                }
+
+                const container = document.getElementById("ticketsContainer");
+                tickets.forEach(ticket => {
+                    const div = document.createElement("div");
+                    div.className = "card";
+                    
+                    // Выбираем цвет бейджика в зависимости от статуса
+                    let badgeClass = ticket.status === "Новая" ? "status-new" : "status-done";
+                    let statusIcon = ticket.status === "Новая" ? "fa-clock" : "fa-check-double";
+
+                    div.innerHTML = `
+                        <div class="status-badge ${badgeClass}"><i class="fa-solid ${statusIcon}"></i> ${ticket.status}</div>
+                        <div style="font-weight: bold; font-size: 16px; margin-bottom: 4px;">${ticket.address}</div>
+                        <div style="font-size: 14px; color: #3a3a3c;">${ticket.problem}</div>
+                        <div class="ticket-info">
+                            <div><i class="fa-regular fa-calendar-days"></i> ${ticket.date}</div>
+                            <div style="margin-top: 4px;"><i class="fa-solid fa-helmet-safety"></i> Мастер: ${ticket.master}</div>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
             } catch (error) {
-                statusDiv.innerText = "Ошибка связи сервером.";
-                statusDiv.style.color = "#ff3b30";
+                document.getElementById("loadingTickets").innerHTML = 'Ошибка загрузки.';
+                document.getElementById("loadingTickets").style.color = "#ff3b30";
             }
         }
 
-        function logout() {
-            localStorage.removeItem("currentUser");
-            window.location.href = "index.html";
-        }
+        function logout() { localStorage.removeItem("currentUser"); window.location.href = "index.html"; }
     </script>
 </body>
 </html>
