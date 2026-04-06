@@ -185,62 +185,122 @@
             if (tabName === 'tasks') loadTickets();
         }
 
+                // Умная загрузка профиля (С кэшированием)
         async function loadStats() {
-            document.getElementById("loadingProfile").style.display = "block";
-            document.getElementById("profileContent").style.display = "none";
+            // 1. Ищем старые данные в памяти телефона
+            const cachedStats = localStorage.getItem("cachedMasterStats_" + currentUser.name);
+            
+            if (cachedStats) {
+                // Если кэш есть - моментально показываем профиль без загрузки!
+                document.getElementById("loadingProfile").style.display = "none";
+                document.getElementById("profileContent").style.display = "block";
+                renderMasterStats(JSON.parse(cachedStats));
+            } else {
+                // Если кэша нет (самый первый вход) - показываем лоадер
+                document.getElementById("loadingProfile").style.display = "block";
+                document.getElementById("profileContent").style.display = "none";
+            }
 
+            // 2. Идем в Гугл за свежими цифрами в фоне
             try {
                 const response = await fetch(URL_GOOGLE_SERVER + "?action=getMasterStats&masterName=" + encodeURIComponent(currentUser.name));
                 const stats = await response.json();
                 
+                // Прячем лоадер, показываем контент
                 document.getElementById("loadingProfile").style.display = "none";
                 document.getElementById("profileContent").style.display = "block";
 
-                document.getElementById("statTickets").innerText = stats.monthlyTickets;
-                document.getElementById("statMoney").innerText = stats.monthlyMoney + " ₽";
-
-                const titleEl = document.getElementById("badgeTitle");
-                const descEl = document.getElementById("badgeDesc");
-                const iconEl = document.getElementById("badgeIcon");
+                // Сохраняем свежие данные в память телефона
+                localStorage.setItem("cachedMasterStats_" + currentUser.name, JSON.stringify(stats));
                 
-                const totalAllTime = stats.allTimeTickets;
-
-                if (totalAllTime < 20) {
-                    titleEl.innerText = "Новичок 🥉"; descEl.innerText = `Выполнено: ${totalAllTime} шт. Цель: 20`; iconEl.className = "fa-solid fa-seedling"; iconEl.style.color = "#8d6e63"; 
-                } else if (totalAllTime < 50) {
-                    titleEl.innerText = "Опытный мастер 🥈"; descEl.innerText = `Выполнено: ${totalAllTime} шт. Цель: 50`; iconEl.className = "fa-solid fa-shield-halved"; iconEl.style.color = "#78909c"; 
-                } else {
-                    titleEl.innerText = "Легенда ЖКХ 🥇"; descEl.innerText = `Ваш профиль сияет золотом. Выполнено: ${totalAllTime} шт.`; iconEl.className = "fa-solid fa-crown"; iconEl.style.color = "#ffb300"; 
-                }
+                // Перерисовываем цифры на свежие
+                renderMasterStats(stats);
             } catch (error) { 
-                document.getElementById("loadingProfile").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
+                if (!cachedStats) {
+                    document.getElementById("loadingProfile").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
+                }
             }
         }
 
-        async function loadTickets() {
-            document.getElementById("loadingTasks").style.display = "block";
-            document.getElementById("ticketsContainer").innerHTML = "";
-            document.getElementById("emptyMsg").style.display = "none";
+        // Вспомогательная функция (просто меняет текст на экране)
+        function renderMasterStats(stats) {
+            document.getElementById("statTickets").innerText = stats.monthlyTickets;
+            document.getElementById("statMoney").innerText = stats.monthlyMoney + " ₽";
+
+            const titleEl = document.getElementById("badgeTitle");
+            const descEl = document.getElementById("badgeDesc");
+            const iconEl = document.getElementById("badgeIcon");
             
+            const totalAllTime = stats.allTimeTickets;
+
+            if (totalAllTime < 20) {
+                titleEl.innerText = "Ваше достижение : Новичок 🥉"; descEl.innerText = `Выполнено заявок: ${totalAllTime} шт. Цель: 20`; iconEl.className = "fa-solid fa-seedling"; iconEl.style.color = "#8d6e63"; 
+            } else if (totalAllTime < 50) {
+                titleEl.innerText = "Опытный мастер 🥈"; descEl.innerText = `Выполнено заявок: ${totalAllTime} шт. Цель: 50`; iconEl.className = "fa-solid fa-shield-halved"; iconEl.style.color = "#78909c"; 
+            } else {
+                titleEl.innerText = "Легенда Гильдии 🥇"; descEl.innerText = `Ваш профиль сияет золотом. Выполнено заявок: ${totalAllTime} шт.`; iconEl.className = "fa-solid fa-crown"; iconEl.style.color = "#ffb300"; 
+            }
+        }
+
+                // Умная загрузка задач мастера (с кэшем)
+        async function loadTickets() {
+            // 1. Ищем старые задачи в памяти телефона
+            const cachedTickets = localStorage.getItem("cachedMasterTickets_" + currentUser.name);
+            
+            if (cachedTickets) {
+                // Если кэш есть - моментально рисуем!
+                document.getElementById("loadingTasks").style.display = "none";
+                renderMasterTickets(JSON.parse(cachedTickets));
+            } else {
+                // Если кэша нет - показываем лоадер
+                document.getElementById("loadingTasks").style.display = "block";
+                document.getElementById("ticketsContainer").innerHTML = "";
+                document.getElementById("emptyMsg").style.display = "none";
+            }
+
+            // 2. Идем в Гугл за свежими задачами (в фоне)
             try {
                 const response = await fetch(URL_GOOGLE_SERVER + "?action=getTickets&masterName=" + encodeURIComponent(currentUser.name));
                 const tickets = await response.json();
                 
                 document.getElementById("loadingTasks").style.display = "none";
                 
-                if (tickets.length === 0) { document.getElementById("emptyMsg").style.display = "block"; return; }
+                // Сохраняем в кэш
+                localStorage.setItem("cachedMasterTickets_" + currentUser.name, JSON.stringify(tickets));
                 
-                const container = document.getElementById("ticketsContainer");
-                tickets.forEach(ticket => {
-                    const div = document.createElement("div");
-                    div.className = "card ticket-card";
-                    div.innerHTML = `<div class="ticket-date"><i class="fa-regular fa-clock"></i> ${ticket.date}</div><div class="ticket-address">${ticket.address}</div><div class="ticket-problem"><i class="fa-solid fa-wrench" style="color:#8e8e93;"></i> ${ticket.problem}</div>`;
-                    div.onclick = () => openReportForm(ticket);
-                    container.appendChild(div);
-                });
+                // Перерисовываем на свежие
+                renderMasterTickets(tickets);
             } catch (error) { 
-                document.getElementById("loadingTasks").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
+                if (!cachedTickets) {
+                    document.getElementById("loadingTasks").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
+                }
             }
+        }
+
+        // Вспомогательная функция отрисовки HTML
+        function renderMasterTickets(tickets) {
+            const container = document.getElementById("ticketsContainer");
+            const msg = document.getElementById("emptyMsg");
+            
+            container.innerHTML = "";
+            msg.style.display = "none";
+
+            if (tickets.length === 0) { 
+                msg.style.display = "block"; 
+                return; 
+            }
+            
+            tickets.forEach(ticket => {
+                const div = document.createElement("div");
+                div.className = "card ticket-card";
+                div.innerHTML = `
+                    <div class="ticket-date"><i class="fa-regular fa-clock"></i> ${ticket.date}</div>
+                    <div class="ticket-address">${ticket.address}</div>
+                    <div class="ticket-problem"><i class="fa-solid fa-wrench" style="color:#8e8e93;"></i> ${ticket.problem}</div>
+                `;
+                div.onclick = () => openReportForm(ticket);
+                container.appendChild(div);
+            });
         }
 
         function openReportForm(ticket) {
