@@ -68,8 +68,8 @@
             </div>
             
               <div class="card" style="background: linear-gradient(135deg, #ff9500, #ff5e3a); color: white; border: none; margin-bottom: 15px;">
-                <h3 style="margin: 0 0 5px 0;"><i class="fa-solid fa-star"></i> Золотые руки!</h3>
-                <p style="margin: 0; font-size: 14px; opacity: 0.9;">Спасибо за вашу работу. Жильцы ценят ваш труд!</p>
+                <h3 style="margin: 0 0 5px 0;"><i class="fa-solid fa-star"></i> У вас золотые руки!</h3>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9;">Спасибо за вашу работу. Мы ценим ваш труд!</p>
             </div>
 
             <!-- Карточка Достижения -->
@@ -224,17 +224,17 @@
 
                 if (totalAllTime < 20) {
                     titleEl.innerText = "Новичок 🥉";
-                    descEl.innerText = `Хорошее начало! Выполнено за всё время: ${totalAllTime} шт.`;
+                    descEl.innerText = `Хорошее начало! Выполнено заявок за всё время: ${totalAllTime} шт.`;
                     iconEl.className = "fa-solid fa-seedling";
                     iconEl.style.color = "#8d6e63"; // Коричневый
                 } else if (totalAllTime < 50) {
                     titleEl.innerText = "Опытный мастер 🥈";
-                    descEl.innerText = `Вы уверенно справляетесь. Выполнено: ${totalAllTime} шт.`;
+                    descEl.innerText = `Вы уверенно справляетесь. Выполнено заявок за всё время: ${totalAllTime} шт.`;
                     iconEl.className = "fa-solid fa-shield-halved";
                     iconEl.style.color = "#78909c"; // Серебро
                 } else {
                     titleEl.innerText = "Легенда ЖКХ 🥇";
-                    descEl.innerText = `Ваш профиль сияет золотом. Выполнено: ${totalAllTime} шт.`;
+                    descEl.innerText = `Ваш профиль сияет золотом. Выполнено заявок за всё время: ${totalAllTime} шт.`;
                     iconEl.className = "fa-solid fa-crown";
                     iconEl.style.color = "#ffb300"; // Золото
                 }
