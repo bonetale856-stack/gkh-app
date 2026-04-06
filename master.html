@@ -9,84 +9,117 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Специфичные стили для карточек заявок мастера */
+        /* Специфичные стили мастера */
         .ticket-card { border-left: 4px solid #ff9500; cursor: pointer; transition: 0.2s; }
         .ticket-card:active { background: #f9f9f9; transform: scale(0.98); }
         .ticket-date { font-size: 12px; color: #8e8e93; margin-bottom: 8px;}
         .ticket-address { font-size: 16px; font-weight: 700; color: #1c1c1e; margin-bottom: 4px;}
         .ticket-problem { font-size: 14px; color: #3a3a3c; }
         
-        /* Чекбокс "Бесплатно" в стиле iOS */
         .free-toggle { background: #f2f2f7; padding: 16px; border-radius: 12px; display: flex; align-items: center; margin-bottom: 16px; cursor: pointer;}
         .free-toggle input { transform: scale(1.5); margin-right: 15px; }
         .free-toggle span { font-weight: 600; color: #34c759; font-size: 16px;}
-        
         .total-price { background: #e5f1ff; color: #007aff; padding: 16px; border-radius: 12px; font-size: 20px; font-weight: 700; text-align: right; margin-bottom: 16px;}
+
+        /* Стили для статистики профиля */
+        .stats-grid { display: flex; gap: 10px; margin-bottom: 20px; }
+        .stat-box { flex: 1; background: #f9f9f9; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #eee; }
+        .stat-num { font-size: 24px; font-weight: 800; color: #ff9500; margin-bottom: 5px; }
+        .stat-label { font-size: 12px; color: #8e8e93; font-weight: 600; text-transform: uppercase;}
+        
+        /* Медалька достижения */
+        .badge-card { background: linear-gradient(135deg, #fff3e0, #ffe0b2); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px; margin-bottom: 20px;}
+        .badge-icon { font-size: 35px; color: #ff9500; }
+        .badge-text h4 { margin: 0 0 5px 0; color: #1c1c1e; font-size: 16px;}
+        .badge-text p { margin: 0; font-size: 13px; color: #d84315;}
     </style>
 </head>
 <body>
 
+    <!-- Экран загрузки -->
+    <div id="globalLoader" class="global-loader">
+        <i class="fa-solid fa-circle-notch fa-spin"></i>
+        <div id="loaderText" class="loader-text">Загрузка...</div>
+    </div>
+
     <div class="top-bar" id="headerTitle">Мои задачи</div>
 
-    <!-- ГЛАВНЫЙ КОНТЕЙНЕР (Скрывается при открытии отчета) -->
+    <!-- ГЛАВНЫЙ КОНТЕЙНЕР (Вкладки) -->
     <div class="container" id="mainContainer">
         
-        <!-- ЭКРАН 1: СПИСОК ЗАЯВОК -->
+        <!-- ЭКРАН 1: ЗАДАЧИ -->
         <div id="tab-tasks" class="tab-content active">
-            <div id="loading" class="loader"><i class="fa-solid fa-spinner fa-spin"></i> Ищем новые задачи...</div>
-            
             <div id="emptyMsg" class="card" style="display: none; text-align: center; color: #34c759; padding: 40px 20px;">
                 <i class="fa-solid fa-mug-hot" style="font-size: 40px; margin-bottom: 15px; color: #a8e6cf;"></i>
-                <h3 style="margin-top: 0; color: #1c1c1e;">Нет активных задач</h3>
-                <p>Все заявки выполнены! Вы молодец.</p>
-                <button class="btn" style="background:#f2f2f7; color:#007aff; margin-top:10px;" onclick="loadTickets()"><i class="fa-solid fa-rotate-right"></i> Обновить</button>
+                <h3 style="margin-top: 0;">Нет активных задач</h3>
+                <p>Все заявки выполнены!</p>
+                <button class="btn" style="background:#f2f2f7; color:#007aff; margin-top:10px;" onclick="loadTickets()">
+                    <i class="fa-solid fa-rotate-right"></i> Обновить
+                </button>
             </div>
-
             <div id="ticketsContainer"></div>
         </div>
 
-        <!-- ЭКРАН 2: ПРОФИЛЬ -->
+        <!-- ЭКРАН 2: ПРОФИЛЬ СО СТАТИСТИКОЙ -->
         <div id="tab-profile" class="tab-content">
-            <div class="card" style="background: linear-gradient(135deg, #ff9500, #ff5e3a); color: white; border: none;">
-                <h3 style="margin: 0 0 10px 0;"><i class="fa-solid fa-star"></i> Золотые руки!</h3>
-                <p style="margin: 0; opacity: 0.9;">Спасибо за вашу работу. Жильцы ценят ваш труд!</p>
+            <div class="card" style="text-align: center; margin-bottom: 15px; border-bottom: 4px solid #ff9500;">
+                <h2 style="margin: 0 0 5px 0; color: #1c1c1e;" id="profileName">Загрузка...</h2>
+                <p style="margin: 0; color: #8e8e93; font-weight: 600;">Мастер</p>
+            </div>
+            
+              <div class="card" style="background: linear-gradient(135deg, #ff9500, #ff5e3a); color: white; border: none; margin-bottom: 15px;">
+                <h3 style="margin: 0 0 5px 0;"><i class="fa-solid fa-star"></i> Золотые руки!</h3>
+                <p style="margin: 0; font-size: 14px; opacity: 0.9;">Спасибо за вашу работу. Жильцы ценят ваш труд!</p>
             </div>
 
-            <div class="card" style="text-align: center;">
-                <div style="background: #fff5e5; color: #ff9500; width: 60px; height: 60px; border-radius: 30px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 15px auto;">
-                    <i class="fa-solid fa-helmet-safety"></i>
+            <!-- Карточка Достижения -->
+            <div class="badge-card" id="achievementBadge">
+                <div class="badge-icon"><i class="fa-solid fa-medal" id="badgeIcon"></i></div>
+                <div class="badge-text">
+                    <h4 id="badgeTitle">Загружаем ранг...</h4>
+                    <p id="badgeDesc">...</p>
                 </div>
-                <h2 style="margin: 0 0 5px 0; color: #1c1c1e;" id="profileName">Загрузка...</h2>
-                <p style="margin: 0 0 20px 0; color: #8e8e93; font-weight: 600;">Мастер</p>
-                
-                <button class="btn btn-danger" onclick="logout()">
-                    <i class="fa-solid fa-arrow-right-from-bracket"></i> Выйти из аккаунта
-                </button>
             </div>
+
+            <!-- Цифры статистики -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-num" id="statTickets">0</div>
+                    <div class="stat-label">Заявок<br><span style="color:#007aff; font-size:10px;">в этом месяце</span></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num" id="statMoney" style="color: #34c759;">0 ₽</div>
+                    <div class="stat-label">Заработано<br><span style="color:#007aff; font-size:10px;">в этом месяце</span></div>
+                </div>
+            </div>
+
+            <button class="btn btn-danger" onclick="logout()">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Выйти из аккаунта
+            </button>
         </div>
     </div>
 
-    <!-- ЭКРАН ОТЧЕТА (Изначально скрыт, появляется поверх всего) -->
+    <!-- ЭКРАН ОТЧЕТА (Скрыт по умолчанию) -->
     <div class="container" id="reportScreen" style="display: none; padding-bottom: 20px;">
         <button class="btn" style="background: #f2f2f7; color: #007aff; margin-bottom: 15px;" onclick="closeReport()">
             <i class="fa-solid fa-chevron-left"></i> Назад к списку
         </button>
         
         <div class="card" style="background: #f9f9f9; border-left: 4px solid #007aff;">
-            <div id="reportAddress" style="font-weight: 700; font-size: 16px; margin-bottom: 5px;"></div>
+            <div id="reportAddress" style="font-weight: 700; margin-bottom: 5px;"></div>
             <div id="reportProblem" style="font-size: 14px; color: #555;"></div>
         </div>
 
         <div class="form-group">
-            <label><i class="fa-solid fa-clipboard-check"></i> Описание выполненных работ:</label>
-            <textarea class="form-control" id="repDescription" rows="3" placeholder="Заменил трубу, починил розетку..."></textarea>
+            <label>Описание работ:</label>
+            <textarea class="form-control" id="repDescription" rows="3"></textarea>
         </div>
-
+        
         <label class="free-toggle">
             <input type="checkbox" id="isFree" onchange="toggleMoney()">
             <span>В счет содержания жилья (Бесплатно)</span>
         </label>
-
+        
         <div id="moneyBlock">
             <div class="form-group">
                 <label>Работа (руб):</label>
@@ -102,11 +135,10 @@
             </div>
             <div class="total-price">Итого: <span id="totalSum">0</span> ₽</div>
         </div>
-
-        <button class="btn btn-primary" style="background: #34c759; box-shadow: 0 4px 10px rgba(52, 199, 89, 0.3);" onclick="submitReport()">
+        
+        <button class="btn btn-primary" style="background: #34c759;" onclick="submitReport()">
             <i class="fa-solid fa-check-double"></i> Закрыть заявку
         </button>
-        <div id="status" class="status-text"></div>
     </div>
 
     <!-- НИЖНЕЕ МЕНЮ -->
@@ -122,23 +154,39 @@
     </div>
 
     <script>
-        // === ВАЖНО: ВСТАВЬ СВОЮ ССЫЛКУ НИЖЕ ===
         const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
         
         let currentUser = null;
         let activeTicketId = null;
 
+        // Функции управления экраном загрузки
+        function showLoader(text) { 
+            document.getElementById("loaderText").innerText = text; 
+            document.getElementById("globalLoader").classList.add("active"); 
+        }
+        function hideLoader() { 
+            document.getElementById("globalLoader").classList.remove("active"); 
+        }
+
+        // При загрузке страницы проверяем пользователя
         window.onload = async function() {
             const userStr = localStorage.getItem("currentUser");
-            if (!userStr) { window.location.href = "index.html"; return; }
+            if (!userStr) { 
+                window.location.href = "index.html"; 
+                return; 
+            }
+            
             currentUser = JSON.parse(userStr);
-            if (currentUser.role !== "мастер") { window.location.href = "index.html"; return; }
+            if (currentUser.role !== "мастер") { 
+                window.location.href = "index.html"; 
+                return; 
+            }
 
             document.getElementById("profileName").innerText = currentUser.name;
-            await loadTickets();
+            await loadTickets(); // Сразу грузим активные заявки
         };
 
-        // Нижнее меню
+        // Переключение вкладок нижнего меню
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
@@ -146,27 +194,69 @@
             document.getElementById('tab-' + tabName).classList.add('active');
             document.getElementById('nav-' + tabName).classList.add('active');
             
-            const titles = { 'tasks': 'Мои задачи', 'profile': 'Профиль' };
-            document.getElementById('headerTitle').innerText = titles[tabName];
+            document.getElementById('headerTitle').innerText = tabName === 'tasks' ? 'Мои задачи' : 'Профиль мастера';
+            
+            // Если открыли профиль - запрашиваем свежую статистику!
+            if (tabName === 'profile') {
+                loadStats();
+            }
         }
 
-        // Загрузка заявок
+        // Загрузка статистики (Геймификация)
+        async function loadStats() {
+            showLoader("Считаем успехи...");
+            try {
+                const response = await fetch(URL_GOOGLE_SERVER + "?action=getMasterStats&masterName=" + encodeURIComponent(currentUser.name));
+                const stats = await response.json();
+                hideLoader();
+
+                document.getElementById("statTickets").innerText = stats.totalTickets;
+                document.getElementById("statMoney").innerText = stats.totalMoney + " ₽";
+
+                // Логика рангов
+                const titleEl = document.getElementById("badgeTitle");
+                const descEl = document.getElementById("badgeDesc");
+                const iconEl = document.getElementById("badgeIcon");
+
+                if (stats.totalTickets < 20) {
+                    titleEl.innerText = "Новичок 🥉";
+                    descEl.innerText = "Хорошее начало! Выполните 20 заявки для повышения.";
+                    iconEl.className = "fa-solid fa-seedling";
+                    iconEl.style.color = "#8d6e63"; // Коричневый
+                } else if (stats.totalTickets < 50) {
+                    titleEl.innerText = "Опытный мастер 🥈";
+                    descEl.innerText = "Вы уверенно справляетесь. Цель: 50 заявок.";
+                    iconEl.className = "fa-solid fa-shield-halved";
+                    iconEl.style.color = "#78909c"; // Серебро
+                } else {
+                    titleEl.innerText = "Легенда ЖКХ 🥇";
+                    descEl.innerText = "Ваш профиль сияет золотом. Вы топ-сотрудник!";
+                    iconEl.className = "fa-solid fa-crown";
+                    iconEl.style.color = "#ffb300"; // Золото
+                }
+
+            } catch (error) { 
+                hideLoader(); 
+                alert("Ошибка загрузки профиля."); 
+            }
+        }
+
+        // Загрузка активных заявок
         async function loadTickets() {
-            document.getElementById("loading").style.display = "block";
+            showLoader("Поиск задач...");
             document.getElementById("ticketsContainer").innerHTML = "";
             document.getElementById("emptyMsg").style.display = "none";
-
+            
             try {
                 const response = await fetch(URL_GOOGLE_SERVER + "?action=getTickets&masterName=" + encodeURIComponent(currentUser.name));
                 const tickets = await response.json();
+                hideLoader();
                 
-                document.getElementById("loading").style.display = "none";
-
-                if (tickets.length === 0) {
-                    document.getElementById("emptyMsg").style.display = "block";
-                    return;
+                if (tickets.length === 0) { 
+                    document.getElementById("emptyMsg").style.display = "block"; 
+                    return; 
                 }
-
+                
                 const container = document.getElementById("ticketsContainer");
                 tickets.forEach(ticket => {
                     const div = document.createElement("div");
@@ -179,17 +269,16 @@
                     div.onclick = () => openReportForm(ticket);
                     container.appendChild(div);
                 });
-            } catch (error) {
-                document.getElementById("loading").innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Ошибка загрузки.';
-                document.getElementById("loading").style.color = "#ff3b30";
+            } catch (error) { 
+                hideLoader(); 
+                alert("Ошибка загрузки задач."); 
             }
         }
 
-        // Открытие формы
+        // Открытие формы отчета
         function openReportForm(ticket) {
             activeTicketId = ticket.id;
             
-            // Прячем главный экран и меню, показываем экран отчета
             document.getElementById("mainContainer").style.display = "none";
             document.getElementById("bottomNav").style.display = "none";
             document.getElementById("reportScreen").style.display = "block";
@@ -198,89 +287,86 @@
             document.getElementById("reportAddress").innerText = "📍 " + ticket.address;
             document.getElementById("reportProblem").innerText = ticket.problem;
             
-            // Очистка полей
-            document.getElementById("repDescription").value = "";
-            document.getElementById("isFree").checked = false;
-            document.getElementById("repWork").value = "0";
-            document.getElementById("repMaterial").value = "0";
-            document.getElementById("repDelivery").value = "0";
-            toggleMoney();
+            // Очистка полей перед заполнением
+            document.getElementById("repDescription").value = ""; 
+            document.getElementById("isFree").checked = false; 
+            document.getElementById("repWork").value = "0"; 
+            document.getElementById("repMaterial").value = "0"; 
+            document.getElementById("repDelivery").value = "0"; 
+            
+            toggleMoney(); // Обновляем видимость блока с деньгами
         }
 
-        function closeReport() {
-            document.getElementById("reportScreen").style.display = "none";
-            document.getElementById("mainContainer").style.display = "block";
-            document.getElementById("bottomNav").style.display = "flex";
-            switchTab('tasks');
+        // Возврат к списку заявок
+        function closeReport() { 
+            document.getElementById("reportScreen").style.display = "none"; 
+            document.getElementById("mainContainer").style.display = "block"; 
+            document.getElementById("bottomNav").style.display = "flex"; 
+            switchTab('tasks'); 
         }
 
-        function toggleMoney() {
-            const isFree = document.getElementById("isFree").checked;
-            document.getElementById("moneyBlock").style.display = isFree ? "none" : "block";
-            if(!isFree) calcTotal();
+        // Скрытие блока с ценой, если "Бесплатно"
+        function toggleMoney() { 
+            const isFree = document.getElementById("isFree").checked; 
+            document.getElementById("moneyBlock").style.display = isFree ? "none" : "block"; 
+            if(!isFree) calcTotal(); 
         }
 
-        function calcTotal() {
-            const w = parseInt(document.getElementById("repWork").value) || 0;
-            const m = parseInt(document.getElementById("repMaterial").value) || 0;
-            const d = parseInt(document.getElementById("repDelivery").value) || 0;
-            document.getElementById("totalSum").innerText = w + m + d;
+        // Калькулятор итоговой суммы
+        function calcTotal() { 
+            const w = parseInt(document.getElementById("repWork").value) || 0; 
+            const m = parseInt(document.getElementById("repMaterial").value) || 0; 
+            const d = parseInt(document.getElementById("repDelivery").value) || 0; 
+            document.getElementById("totalSum").innerText = w + m + d; 
         }
 
+        // Отправка отчета на сервер
         async function submitReport() {
             const desc = document.getElementById("repDescription").value.trim();
             const isFree = document.getElementById("isFree").checked;
-            const statusDiv = document.getElementById("status");
-
-            if (!desc) {
-                statusDiv.innerText = "Напишите описание работ!";
-                statusDiv.style.color = "#ff3b30";
-                return;
+            
+            if (!desc) { 
+                alert("Напишите описание выполненных работ!"); 
+                return; 
             }
-
-            statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Отправляем...';
-            statusDiv.style.color = "#007aff";
-
-            const reportData = {
-                action: "submitReport",
-                ticketId: activeTicketId,
-                masterName: currentUser.name,
-                description: desc,
-                paymentType: isFree ? "Бесплатно" : "Платно",
-                workCost: isFree ? 0 : (parseInt(document.getElementById("repWork").value) || 0),
-                materialCost: isFree ? 0 : (parseInt(document.getElementById("repMaterial").value) || 0),
-                deliveryCost: isFree ? 0 : (parseInt(document.getElementById("repDelivery").value) || 0),
-                totalCost: isFree ? 0 : parseInt(document.getElementById("totalSum").innerText)
+            
+            showLoader("Отправка отчета...");
+            
+            const reportData = { 
+                action: "submitReport", 
+                ticketId: activeTicketId, 
+                masterName: currentUser.name, 
+                description: desc, 
+                paymentType: isFree ? "Бесплатно" : "Платно", 
+                workCost: isFree ? 0 : (parseInt(document.getElementById("repWork").value) || 0), 
+                materialCost: isFree ? 0 : (parseInt(document.getElementById("repMaterial").value) || 0), 
+                deliveryCost: isFree ? 0 : (parseInt(document.getElementById("repDelivery").value) || 0), 
+                totalCost: isFree ? 0 : parseInt(document.getElementById("totalSum").innerText) 
             };
-
+            
             try {
-                const response = await fetch(URL_GOOGLE_SERVER, {
-                    method: "POST",
-                    body: JSON.stringify(reportData),
-                    headers: { "Content-Type": "text/plain;charset=utf-8" }
+                const response = await fetch(URL_GOOGLE_SERVER, { 
+                    method: "POST", 
+                    body: JSON.stringify(reportData), 
+                    headers: { "Content-Type": "text/plain;charset=utf-8" } 
                 });
-                
                 const result = await response.json();
                 
                 if (result.status === "success") {
-                    statusDiv.innerHTML = '<i class="fa-solid fa-check"></i> Заявка закрыта!';
-                    statusDiv.style.color = "#34c759";
-                    
-                    setTimeout(() => {
-                        statusDiv.innerText = "";
-                        closeReport();
-                        loadTickets(); // Обновляем список (заявка пропадет)
-                    }, 1500);
+                    hideLoader();
+                    closeReport(); 
+                    loadTickets(); // Заново грузим задачи (текущая исчезнет)
                 }
-            } catch (error) {
-                statusDiv.innerText = "Ошибка сервера.";
-                statusDiv.style.color = "#ff3b30";
+            } catch (error) { 
+                hideLoader(); 
+                alert("Ошибка сервера при отправке."); 
             }
         }
 
-        function logout() {
-            localStorage.removeItem("currentUser");
-            window.location.href = "index.html";
+        // Выход из профиля
+        function logout() { 
+            localStorage.removeItem("currentUser"); 
+            window.location.href = "index.html"; 
         }
     </script>
 </body>
