@@ -55,6 +55,19 @@
             </div>
             <div id="ticketsContainer"></div>
         </div>
+        
+                <!-- ЭКРАН 1.5: ИСТОРИЯ ВЫПОЛНЕННЫХ -->
+        <div id="tab-history" class="tab-content">
+            <div id="loadingHistory" class="inline-loader" style="display: none;">
+                <i class="fa-solid fa-circle-notch fa-spin"></i><br>Грузим историю...
+            </div>
+            <div id="emptyHistoryMsg" class="card" style="display: none; text-align: center; color: #8e8e93; padding: 40px 20px;">
+                <i class="fa-solid fa-folder-open" style="font-size: 40px; margin-bottom: 15px; color: #d1d1d6;"></i>
+                <h3 style="margin-top: 0;">Пусто</h3>
+                <p>Вы еще не выполнили ни одной заявки.</p>
+            </div>
+            <div id="historyContainer"></div>
+        </div>
 
         <!-- ЭКРАН 2: ПРОФИЛЬ -->
         <div id="tab-profile" class="tab-content">
@@ -125,6 +138,11 @@
     <!-- НИЖНЕЕ МЕНЮ -->
     <div class="bottom-nav" id="bottomNav">
         <div class="nav-item active" onclick="switchTab('tasks')" id="nav-tasks"><i class="fa-solid fa-screwdriver-wrench"></i><span>Задачи</span></div>
+        
+           <div class="nav-item" onclick="switchTab('history')" id="nav-history">
+            <i class="fa-solid fa-clock-rotate-left"></i><span>История</span>
+        </div>
+        
         <div class="nav-item" onclick="switchTab('profile')" id="nav-profile"><i class="fa-solid fa-user"></i><span>Профиль</span></div>
     </div>
 
@@ -181,10 +199,12 @@
             if(tabElement) tabElement.classList.add('active');
             if(navElement) navElement.classList.add('active');
             
-            document.getElementById('headerTitle').innerText = tabName === 'tasks' ? 'Мои задачи' : 'Профиль мастера';
+            const titles = { 'tasks': 'Мои задачи', 'history': 'Выполненные', 'profile': 'Профиль' };
+            document.getElementById('headerTitle').innerText = titles[tabName] || 'Гильдия Сервис';
             
             if (tabName === 'profile') loadStats();
             if (tabName === 'tasks') loadTickets();
+            if (tabName === 'history') loadHistory(); // <-- Подгружаем историю!
         }
 
                 // Умная загрузка профиля (С кэшированием)
@@ -274,6 +294,67 @@
                 }
             }
         }
+        
+                // Умная загрузка истории (с кэшем)
+        async function loadHistory() {
+            // 1. Ищем кэш
+            const cachedHistory = localStorage.getItem("cachedMasterHistory_" + currentUser.name);
+            
+            if (cachedHistory) {
+                document.getElementById("loadingHistory").style.display = "none";
+                renderMasterHistory(JSON.parse(cachedHistory));
+            } else {
+                document.getElementById("loadingHistory").style.display = "block";
+                document.getElementById("historyContainer").innerHTML = "";
+                document.getElementById("emptyHistoryMsg").style.display = "none";
+            }
+
+            // 2. Идем в Гугл за свежими данными
+            try {
+                const response = await fetch(URL_GOOGLE_SERVER + "?action=getMasterHistory&masterName=" + encodeURIComponent(currentUser.name));
+                const tickets = await response.json();
+                
+                document.getElementById("loadingHistory").style.display = "none";
+                localStorage.setItem("cachedMasterHistory_" + currentUser.name, JSON.stringify(tickets));
+                renderMasterHistory(tickets);
+            } catch (error) { 
+                if (!cachedHistory) {
+                    document.getElementById("loadingHistory").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
+                }
+            }
+        }
+
+        // Отрисовка карточек истории (без кнопки клика!)
+        function renderMasterHistory(tickets) {
+            const container = document.getElementById("historyContainer");
+            const msg = document.getElementById("emptyHistoryMsg");
+            
+            container.innerHTML = "";
+            msg.style.display = "none";
+
+            if (tickets.length === 0) { 
+                msg.style.display = "block"; 
+                return; 
+            }
+            
+            tickets.forEach(ticket => {
+                const div = document.createElement("div");
+                // Сделали карточку чуть бледнее и с зеленой полоской
+                div.className = "card";
+                div.style.borderLeft = "4px solid #34c759"; 
+                div.style.opacity = "0.9";
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <span style="font-size:12px; color:#8e8e93;"><i class="fa-regular fa-calendar-check"></i> ${ticket.date}</span>
+                        <span style="font-size:12px; font-weight:bold; color:#34c759;"><i class="fa-solid fa-check-double"></i> Закрыта</span>
+                    </div>
+                    <div class="ticket-address">${ticket.address}</div>
+                    <div class="ticket-problem"><i class="fa-solid fa-wrench" style="color:#8e8e93;"></i> ${ticket.problem}</div>
+                `;
+                // ЗАМЕТЬ: Тут нет onclick, поэтому нажать и отредактировать нельзя!
+                container.appendChild(div);
+            });
+        }
 
         // Вспомогательная функция отрисовки HTML
         function renderMasterTickets(tickets) {
@@ -339,7 +420,7 @@
             document.getElementById("totalSum").innerText = w + m + d; 
         }
 
-        async function submitReport() {
+                async function submitReport() {
             const desc = document.getElementById("repDescription").value.trim();
             const isFree = document.getElementById("isFree").checked;
             const btn = document.getElementById("btnSubmitReport");
@@ -366,6 +447,11 @@
                         btn.disabled = false;
                         btn.innerHTML = '<i class="fa-solid fa-check-double"></i> Закрыть заявку';
                         closeReport(); 
+                        
+                        // === ВОТ ЭТИ ДВЕ СТРОЧКИ ИСПРАВЛЯЮТ БАГ ===
+                        localStorage.removeItem("cachedMasterHistory_" + currentUser.name); // Сбрасываем старый кэш истории
+                        loadTickets(); // Заново грузим задачи (текущая исчезнет с экрана)
+                        
                     }, 1000);
                 }
             } catch (error) { 
