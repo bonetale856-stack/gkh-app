@@ -63,7 +63,7 @@
 
         const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
 
-        async function login() {
+                async function login() {
             const nameInput = document.getElementById("userName").value.trim();
             const pinInput = document.getElementById("userPin").value.trim();
             const statusText = document.getElementById("status");
@@ -75,29 +75,44 @@
             }
 
             statusText.innerText = "";
-            showLoader("Проверка данных..."); // Включаем анимацию!
+            showLoader("Проверка данных...");
+
+            // Формируем закрытый POST запрос
+            const loginData = {
+                action: "login",
+                name: nameInput,
+                pin: pinInput
+            };
 
             try {
-                const response = await fetch(URL_GOOGLE_SERVER);
-                const users = await response.json();
-                const foundUser = users.find(user => user.name === nameInput && String(user.pin) === pinInput);
+                // Отправляем ФИО и ПИН на сервер
+                const response = await fetch(URL_GOOGLE_SERVER, {
+                    method: "POST",
+                    body: JSON.stringify(loginData),
+                    headers: { "Content-Type": "text/plain;charset=utf-8" }
+                });
+                
+                const result = await response.json();
 
-                if (foundUser) {
-                    localStorage.setItem("currentUser", JSON.stringify(foundUser));
+                // Сервер ответил Успехом!
+                if (result.status === "success") {
+                    // Сохраняем в телефон безопасные данные (БЕЗ ПИНА)
+                    localStorage.setItem("currentUser", JSON.stringify(result.user));
                     showLoader("Успешно! Входим...");
                     
-                        setTimeout(() => {
-                        if (foundUser.role === "диспетчер") window.location.replace("dispatcher.html");
-                        else if (foundUser.role === "мастер") window.location.replace("master.html");
-                        else if (foundUser.role === "шеф") window.location.replace("boss.html");
+                    setTimeout(() => {
+                        if (result.user.role === "диспетчер") window.location.replace("dispatcher.html");
+                        else if (result.user.role === "мастер") window.location.replace("master.html");
+                        else if (result.user.role === "шеф") window.location.replace("boss.html");
                     }, 500);
                 } else {
-                    hideLoader(); // Выключаем анимацию
+                    // Сервер ответил Ошибкой (Неверный ПИН)
+                    hideLoader();
                     statusText.innerText = "Неверное ФИО или ПИН-код";
                     statusText.style.color = "#ff3b30";
                 }
             } catch (error) {
-                hideLoader(); // Выключаем анимацию
+                hideLoader();
                 statusText.innerText = "Ошибка связи с сервером.";
                 statusText.style.color = "#ff3b30";
             }
