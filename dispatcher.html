@@ -39,24 +39,29 @@
 
     <div class="container">
         
-        <!-- ЭКРАН 1: СОЗДАТЬ -->
+                <!-- ЭКРАН 1: СОЗДАТЬ ЗАЯВКУ -->
         <div id="tab-create" class="tab-content active">
             <div class="card">
-                <div class="form-group">
+                
+                <div class="form-group" style="position: relative;">
                     <label><i class="fa-solid fa-location-dot"></i> Адрес:</label>
-                    <input type="text" class="form-control" id="address" list="addressList" placeholder="Адрес...">
-                    <datalist id="addressList"></datalist>
+                    <input type="text" class="form-control" id="address" placeholder="Начните вводить адрес..." oninput="filterAddresses()" onfocus="filterAddresses()">
+                    <!-- Наш красивый список -->
+                    <div id="customAddressList" class="custom-dropdown"></div>
                 </div>
+
                 <div class="form-group">
                     <label><i class="fa-solid fa-triangle-exclamation"></i> Проблема:</label>
                     <textarea class="form-control" id="problem" rows="3" placeholder="Что случилось..."></textarea>
                 </div>
-                <div class="form-group">
+
+                <div class="form-group" style="position: relative;">
                     <label><i class="fa-solid fa-helmet-safety"></i> Назначить мастера:</label>
-                    <input type="text" class="form-control" id="masterInput" list="mastersList" placeholder="ФИО мастера...">
-                    <datalist id="mastersList"></datalist>
+                    <input type="text" class="form-control" id="masterInput" placeholder="Начните вводить ФИО..." oninput="filterMasters()" onfocus="filterMasters()">
+                    <!-- Наш красивый список -->
+                    <div id="customMasterList" class="custom-dropdown"></div>
                 </div>
-                <!-- Кнопка теперь сама работает индикатором загрузки -->
+
                 <button class="btn btn-primary" id="btnSubmitTicket" onclick="sendTicket()">
                     <i class="fa-solid fa-paper-plane"></i> Отправить заявку
                 </button>
@@ -95,21 +100,23 @@
 
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ -->
+       <!-- МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ -->
     <div id="editModal">
         <div class="modal-content">
             <h3 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">Редактировать заявку</h3>
-            <div class="form-group">
+            <div class="form-group" style="position: relative;">
                 <label>Адрес:</label>
-                <input type="text" class="form-control" id="editAddress">
+                <input type="text" class="form-control" id="editAddress" oninput="filterEditAddresses()" onfocus="filterEditAddresses()">
+                <div id="customEditAddressList" class="custom-dropdown"></div>
             </div>
             <div class="form-group">
                 <label>Проблема:</label>
                 <textarea class="form-control" id="editProblem" rows="2"></textarea>
             </div>
-            <div class="form-group">
+            <div class="form-group" style="position: relative;">
                 <label>Мастер:</label>
-                <input type="text" class="form-control" id="editMaster">
+                <input type="text" class="form-control" id="editMaster" oninput="filterEditMasters()" onfocus="filterEditMasters()">
+                <div id="customEditMasterList" class="custom-dropdown"></div>
             </div>
             <button class="btn btn-primary" id="btnSaveEdit" onclick="saveEdit()" style="margin-bottom: 10px;">💾 Сохранить изменения</button>
             <button class="btn" style="background: #f2f2f7; color: #ff3b30;" onclick="closeEditModal()">Отмена</button>
@@ -127,35 +134,50 @@
         // === ВАЖНО: ВСТАВЬ СВОЮ ССЫЛКУ НИЖЕ ===
         const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
         
+        let allAddresses = [];
+        let allMasters = [];
         let currentUser = null;
         let myTicketsArray = []; // Сохраняем загруженные заявки тут
         let currentEditId = null;
 
          window.onload = async function() {
-            const userStr = localStorage.getItem("currentUser");
-            if (!userStr) { window.location.replace("index.html"); return; }
-            currentUser = JSON.parse(userStr);
-            if (currentUser.role !== "диспетчер") { window.location.replace("index.html"); return; }
+    const userStr = localStorage.getItem("currentUser");
+    if (!userStr) { window.location.replace("index.html"); return; }
+    currentUser = JSON.parse(userStr);
+    if (currentUser.role !== "диспетчер") { window.location.replace("index.html"); return; }
 
-            document.getElementById("profileName").innerText = currentUser.name;
-            
-            // === МАГИЯ ДЛЯ КНОПКИ "НАЗАД" (Шаг 1) ===
-            // Запоминаем первую вкладку при входе
-            if (!window.location.hash) {
-                history.replaceState({tab: 'create'}, "", "#create");
-            } else {
-                let hashTab = window.location.hash.replace('#', '');
-                applyTab(hashTab);
-            }
+    document.getElementById("profileName").innerText = currentUser.name;
+    
+    // Магия для кнопки "Назад"
+    if (!window.location.hash) {
+        history.replaceState({tab: 'create'}, "", "#create");
+    } else {
+        let hashTab = window.location.hash.replace('#', '');
+        applyTab(hashTab);
+    }
 
-            // Грузим базы тихо в фоне
-            fetch(URL_GOOGLE_SERVER + "?action=getAddresses").then(r => r.json()).then(addrs => {
-                const dl = document.getElementById("addressList"); addrs.forEach(a => dl.innerHTML += `<option value="${a}">`);
-            });
-            fetch(URL_GOOGLE_SERVER).then(r => r.json()).then(users => {
-                const dl = document.getElementById("mastersList"); users.filter(u => u.role === "мастер").forEach(u => dl.innerHTML += `<option value="${u.name}">`);
-            });
-        };
+    // === НОВАЯ ЗАГРУЗКА БАЗ (В ПАМЯТЬ) ===
+    // 1. Грузим адреса
+    fetch(URL_GOOGLE_SERVER + "?action=getAddresses")
+        .then(r => r.json())
+        .then(addrs => {
+            allAddresses = addrs; // Сохраняем в глобальную переменную
+        });
+    
+    // 2. Грузим мастеров
+    fetch(URL_GOOGLE_SERVER)
+        .then(r => r.json())
+        .then(users => {
+            // Фильтруем только мастеров и оставляем только имена
+            allMasters = users.filter(u => u.role === "мастер").map(u => u.name);
+        });
+    
+    // 3. Закрываем списки при клике вне их (чтобы не висели)
+    document.addEventListener('click', function(e) {
+        if (e.target.id !== 'address') document.getElementById('customAddressList').style.display = 'none';
+        if (e.target.id !== 'masterInput') document.getElementById('customMasterList').style.display = 'none';
+    });
+};
 
         // === МАГИЯ ДЛЯ КНОПКИ "НАЗАД" (Шаг 2) ===
         // Слушаем свайп "Назад" на телефоне
@@ -204,20 +226,17 @@
 
             // === НОВАЯ ЗАЩИТА: ПРОВЕРКА АДРЕСА И МАСТЕРА ===
             
-            // 1. Проверяем адрес (берем все варианты из datalist)
-            const addressOptions = Array.from(document.getElementById("addressList").options).map(opt => opt.value);
-            if (!addressOptions.includes(address)) {
-                alert("❌ Ошибка: Такого адреса нет в базе! Выберите адрес из выпадающего списка.");
-                return; // Останавливаем отправку!
-            }
+         // 1. Проверяем адрес по новому массиву
+if (!allAddresses.includes(address)) {
+    alert("❌ Ошибка: Такого адреса нет в базе! Выберите адрес из выпадающего списка.");
+    return;
+}
 
-            // 2. Проверяем мастера (берем все варианты из datalist)
-            const masterOptions = Array.from(document.getElementById("mastersList").options).map(opt => opt.value);
-            if (!masterOptions.includes(master)) {
-                alert("❌ Ошибка: Такого мастера не существует! Выберите ФИО из выпадающего списка.");
-                return; // Останавливаем отправку!
-            }
-
+// 2. Проверяем мастера по новому массиву
+if (!allMasters.includes(master)) {
+    alert("❌ Ошибка: Такого мастера не существует! Выберите ФИО из выпадающего списка.");
+    return;
+}
             // ===============================================
 
             // Блокируем кнопку
@@ -335,14 +354,12 @@
             const newMaster = document.getElementById("editMaster").value.trim();
             
             // === ЗАЩИТА ПРИ РЕДАКТИРОВАНИИ ===
-            const addressOptions = Array.from(document.getElementById("addressList").options).map(opt => opt.value);
-            if (!addressOptions.includes(newAddress)) {
-                alert("❌ Ошибка: Такого адреса нет в базе!"); return;
-            }
-            const masterOptions = Array.from(document.getElementById("mastersList").options).map(opt => opt.value);
-            if (!masterOptions.includes(newMaster)) {
-                alert("❌ Ошибка: Такого мастера не существует!"); return;
-            }
+          if (!allAddresses.includes(newAddress)) {
+          alert("❌ Ошибка: Такого адреса нет в базе!"); return;
+          }
+          if (!allMasters.includes(newMaster)) {
+         alert("❌ Ошибка: Такого мастера не существует!"); return;
+          }
             // ==================================
 
             const btn = document.getElementById("btnSaveEdit");
@@ -397,6 +414,61 @@
                 if (!cachedStats) titleEl.innerText = "Ошибка загрузки"; 
             }
         }
+        
+        // === ЖИВОЙ ПОИСК АДРЕСОВ ===
+function filterAddresses() {
+    const input = document.getElementById("address").value.toLowerCase();
+    const list = document.getElementById("customAddressList");
+    list.innerHTML = "";
+    
+    if (!input) { list.style.display = "none"; return; }
+    
+    // Ищем совпадения (максимум 15 штук)
+    const filtered = allAddresses.filter(a => a.toLowerCase().includes(input)).slice(0, 15);
+    
+    if (filtered.length > 0) {
+        filtered.forEach(a => {
+            let div = document.createElement("div");
+            div.innerText = a;
+            div.className = "dropdown-item"; // Для стилей
+            div.onclick = () => { 
+                document.getElementById("address").value = a; 
+                list.style.display = "none"; 
+            };
+            list.appendChild(div);
+        });
+        list.style.display = "block";
+    } else { 
+        list.style.display = "none"; 
+    }
+}
+
+// === ЖИВОЙ ПОИСК МАСТЕРОВ ===
+function filterMasters() {
+    const input = document.getElementById("masterInput").value.toLowerCase();
+    const list = document.getElementById("customMasterList");
+    list.innerHTML = "";
+    
+    if (!input && allMasters.length > 5) { list.style.display = "none"; return; }
+    
+    const filtered = allMasters.filter(m => m.toLowerCase().includes(input));
+    
+    if (filtered.length > 0) {
+        filtered.forEach(m => {
+            let div = document.createElement("div");
+            div.innerText = m;
+            div.className = "dropdown-item"; // Для стилей
+            div.onclick = () => { 
+                document.getElementById("masterInput").value = m; 
+                list.style.display = "none"; 
+            };
+            list.appendChild(div);
+        });
+        list.style.display = "block";
+    } else { 
+        list.style.display = "none"; 
+    }
+}
 
         // Вспомогательная функция отрисовки
         function renderDispatcherStats(stats) {
@@ -418,6 +490,55 @@
         }
 
         function logout() { localStorage.removeItem("currentUser"); window.location.href = "index.html"; }
+        
+        
+        // === ЖИВОЙ ПОИСК В ОКНЕ РЕДАКТИРОВАНИЯ ===
+function filterEditAddresses() {
+    const input = document.getElementById("editAddress").value.toLowerCase();
+    const list = document.getElementById("customEditAddressList");
+    list.innerHTML = "";
+    if (!input) { list.style.display = "none"; return; }
+    
+    const filtered = allAddresses.filter(a => a.toLowerCase().includes(input)).slice(0, 15);
+    if (filtered.length > 0) {
+        filtered.forEach(a => {
+            let div = document.createElement("div"); div.innerText = a; div.className = "dropdown-item";
+            div.onclick = () => { document.getElementById("editAddress").value = a; list.style.display = "none"; };
+            list.appendChild(div);
+        });
+        list.style.display = "block";
+    } else { list.style.display = "none"; }
+}
+
+function filterEditMasters() {
+    const input = document.getElementById("editMaster").value.toLowerCase();
+    const list = document.getElementById("customEditMasterList");
+    list.innerHTML = "";
+    if (!input && allMasters.length > 5) { list.style.display = "none"; return; }
+    
+    const filtered = allMasters.filter(m => m.toLowerCase().includes(input));
+    if (filtered.length > 0) {
+        filtered.forEach(m => {
+            let div = document.createElement("div"); div.innerText = m; div.className = "dropdown-item";
+            div.onclick = () => { document.getElementById("editMaster").value = m; list.style.display = "none"; };
+            list.appendChild(div);
+        });
+        list.style.display = "block";
+    } else { list.style.display = "none"; }
+}
+
+// Закрываем списки редактирования при клике вне их
+document.addEventListener('click', function(e) {
+    if (e.target.id !== 'editAddress') {
+        let el = document.getElementById('customEditAddressList');
+        if(el) el.style.display = 'none';
+    }
+    if (e.target.id !== 'editMaster') {
+        let el = document.getElementById('customEditMasterList');
+        if(el) el.style.display = 'none';
+    }
+});
+        
     </script>
         <script>
     if ('serviceWorker' in navigator) {
