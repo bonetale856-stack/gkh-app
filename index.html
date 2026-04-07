@@ -48,6 +48,7 @@
                 // Если уже вошел - мгновенно кидаем обратно без сохранения в историю (replace)
                 if (user.role === "диспетчер") window.location.replace("dispatcher.html");
                 else if (user.role === "мастер") window.location.replace("master.html");
+                else if (user.role === "шеф") window.location.replace("boss.html");
             }
         };
         
@@ -85,9 +86,10 @@
                     localStorage.setItem("currentUser", JSON.stringify(foundUser));
                     showLoader("Успешно! Входим...");
                     
-                    setTimeout(() => {
-                        if (foundUser.role === "диспетчер") window.location.href = "dispatcher.html";
-                        else if (foundUser.role === "мастер") window.location.href = "master.html";
+                        setTimeout(() => {
+                        if (foundUser.role === "диспетчер") window.location.replace("dispatcher.html");
+                        else if (foundUser.role === "мастер") window.location.replace("master.html");
+                        else if (foundUser.role === "шеф") window.location.replace("boss.html");
                     }, 500);
                 } else {
                     hideLoader(); // Выключаем анимацию
