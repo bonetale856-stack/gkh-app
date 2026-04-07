@@ -55,7 +55,7 @@
         const userStr = localStorage.getItem("currentUser");
         if (userStr) {
             const user = JSON.parse(userStr);
-            OneSignal.login(user.name); // Теперь Гугл сможет найти этот телефон по ФИО
+            OneSignal.login(user.name); // Теперь сервер сможет найти этот телефон по ФИО
         }
       });
     </script>
@@ -171,7 +171,7 @@
     </div>
 
     <script>
-        // === ВАЖНО: ВСТАВЬ СВОЮ ССЫЛКУ НИЖЕ ===
+       
         const URL_GOOGLE_SERVER = "https://script.google.com/macros/s/AKfycby7iLGZuySy2ZtphSWBgk0bkRteCTo7jn71apvREIXJVIw-ssVZvFwoeD1zgx3Slhi99A/exec";
         
         let currentUser = null;
@@ -488,7 +488,15 @@
             }
         }
 
-        function logout() { localStorage.removeItem("currentUser"); window.location.href = "index.html"; }
+            async function logout() { 
+            // 1. Говорим OneSignal забыть этот телефон (отвязываем ФИО)
+            if (window.OneSignal) {
+                await OneSignal.logout();
+            }
+            // 2. Удаляем из памяти и выходим
+            localStorage.removeItem("currentUser"); 
+            window.location.href = "index.html"; 
+        }
     </script>
     <script>
     if ('serviceWorker' in navigator) {
