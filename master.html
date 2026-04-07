@@ -35,6 +35,30 @@
         .inline-loader { text-align: center; color: #8e8e93; padding: 40px 20px; }
         .inline-loader i { font-size: 30px; margin-bottom: 10px; }
     </style>
+        <!-- ONESIGNAL PUSH NOTIFICATIONS -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "50cbfdd0-0ecb-4231-9d63-63717276a9fc",
+          safari_web_id: "web.onesignal.auto.62a04992-e924-4258-8064-560c4d6dc347",
+          notifyButton: {
+            enable: false, // Отключаем красный колокольчик в углу экрана
+          },
+        });
+        
+        // Показываем красивое окно сверху "Разрешить уведомления?"
+        OneSignal.Slidedown.promptPush();
+
+        // САМОЕ ГЛАВНОЕ: Привязываем этот телефон к ФИО работника!
+        const userStr = localStorage.getItem("currentUser");
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            OneSignal.login(user.name); // Теперь Гугл сможет найти этот телефон по ФИО
+        }
+      });
+    </script>
 </head>
 <body>
 
