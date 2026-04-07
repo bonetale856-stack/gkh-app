@@ -157,19 +157,18 @@
     }
 
     // === НОВАЯ ЗАГРУЗКА БАЗ (В ПАМЯТЬ) ===
-    // 1. Грузим адреса
+ // 1. Грузим адреса (Превращаем в текст и отрезаем случайные пробелы из Гугла)
     fetch(URL_GOOGLE_SERVER + "?action=getAddresses")
         .then(r => r.json())
         .then(addrs => {
-            allAddresses = addrs; // Сохраняем в глобальную переменную
+            allAddresses = addrs.map(a => String(a).trim()); 
         });
     
-    // 2. Грузим мастеров
+    // 2. Грузим мастеров (То же самое)
     fetch(URL_GOOGLE_SERVER)
         .then(r => r.json())
         .then(users => {
-            // Фильтруем только мастеров и оставляем только имена
-            allMasters = users.filter(u => u.role === "мастер").map(u => u.name);
+            allMasters = users.filter(u => u.role === "мастер").map(u => String(u.name).trim());
         });
     
     // 3. Закрываем списки при клике вне их (чтобы не висели)
