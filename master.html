@@ -207,43 +207,41 @@
             if (tabName === 'history') loadHistory(); // <-- Подгружаем историю!
         }
 
-                // Умная загрузка профиля (С кэшированием)
-                async function loadStats() {
-            document.getElementById("loadingProfile").style.display = "block";
-            document.getElementById("profileContent").style.display = "none";
+              // Умная загрузка профиля (С кэшированием)
+        async function loadStats() {
+            // ИЩЕМ КЭШ СНАЧАЛА
+            const cachedStats = localStorage.getItem("cachedMasterStats_" + currentUser.name);
+            if (cachedStats) {
+                document.getElementById("loadingProfile").style.display = "none";
+                document.getElementById("profileContent").style.display = "block";
+                
+                // РИСУЕМ ИЗ КЭША МОМЕНТАЛЬНО (используем нашу готовую функцию)
+                renderMasterStats(JSON.parse(cachedStats));
+            } else {
+                document.getElementById("loadingProfile").style.display = "block";
+                document.getElementById("profileContent").style.display = "none";
+            }
 
             try {
                 const response = await fetch(URL_GOOGLE_SERVER + "?action=getMasterStats&masterName=" + encodeURIComponent(currentUser.name));
                 const stats = await response.json();
                 
+                // Прячем лоадер, сохраняем в кэш
                 document.getElementById("loadingProfile").style.display = "none";
                 document.getElementById("profileContent").style.display = "block";
+                localStorage.setItem("cachedMasterStats_" + currentUser.name, JSON.stringify(stats));
 
-                // Оставили только заявки. Деньги скрыли!
-                document.getElementById("statTickets").innerText = stats.monthlyTickets;
-
-                const titleEl = document.getElementById("badgeTitle");
-                const descEl = document.getElementById("badgeDesc");
-                const iconEl = document.getElementById("badgeIcon");
-                
-                const totalAllTime = stats.allTimeTickets;
-
-                if (totalAllTime < 20) {
-                    titleEl.innerText = "Новичок 🥉"; descEl.innerText = `Выполнено: ${totalAllTime} шт. Цель: 20`; iconEl.className = "fa-solid fa-seedling"; iconEl.style.color = "#8d6e63"; 
-                } else if (totalAllTime < 50) {
-                    titleEl.innerText = "Опытный мастер 🥈"; descEl.innerText = `Выполнено: ${totalAllTime} шт. Цель: 50`; iconEl.className = "fa-solid fa-shield-halved"; iconEl.style.color = "#78909c"; 
-                } else {
-                    titleEl.innerText = "Легенда ГИЛЬДИИ 🥇"; descEl.innerText = `Ваш профиль сияет золотом. Выполнено: ${totalAllTime} шт.`; iconEl.className = "fa-solid fa-crown"; iconEl.style.color = "#ffb300"; 
-                }
+                // Обновляем цифры на свежие
+                renderMasterStats(stats);
             } catch (error) { 
-                document.getElementById("loadingProfile").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
+                if (!cachedStats) document.getElementById("loadingProfile").innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color:red;"></i><br>Ошибка сети'; 
             }
         }
 
-        // Вспомогательная функция (просто меняет текст на экране)
+        // Вспомогательная функция (отрисовывает профиль)
         function renderMasterStats(stats) {
+            // Обновляем только заявки (так как деньги мы скрыли из HTML)
             document.getElementById("statTickets").innerText = stats.monthlyTickets;
-            document.getElementById("statMoney").innerText = stats.monthlyMoney + " ₽";
 
             const titleEl = document.getElementById("badgeTitle");
             const descEl = document.getElementById("badgeDesc");
@@ -251,12 +249,19 @@
             
             const totalAllTime = stats.allTimeTickets;
 
+            // Логика рангов
             if (totalAllTime < 20) {
-                titleEl.innerText = "Ваше достижение : Новичок 🥉"; descEl.innerText = `Выполнено заявок: ${totalAllTime} шт. Цель: 20`; iconEl.className = "fa-solid fa-seedling"; iconEl.style.color = "#8d6e63"; 
+                titleEl.innerText = "Новичок 🥉"; 
+                descEl.innerText = `Выполнено заявок: ${totalAllTime} шт. Цель: 20`; 
+                iconEl.className = "fa-solid fa-seedling"; iconEl.style.color = "#8d6e63"; 
             } else if (totalAllTime < 50) {
-                titleEl.innerText = "Опытный мастер 🥈"; descEl.innerText = `Выполнено заявок: ${totalAllTime} шт. Цель: 50`; iconEl.className = "fa-solid fa-shield-halved"; iconEl.style.color = "#78909c"; 
+                titleEl.innerText = "Опытный мастер 🥈"; 
+                descEl.innerText = `Выполнено: ${totalAllTime} шт. Цель: 50`; 
+                iconEl.className = "fa-solid fa-shield-halved"; iconEl.style.color = "#78909c"; 
             } else {
-                titleEl.innerText = "Легенда Гильдии 🥇"; descEl.innerText = `Ваш профиль сияет золотом. Выполнено заявок: ${totalAllTime} шт.`; iconEl.className = "fa-solid fa-crown"; iconEl.style.color = "#ffb300"; 
+                titleEl.innerText = "Легенда ГИЛЬДИИ 🥇"; 
+                descEl.innerText = `Ваш профиль сияет золотом. Выполнено заявок: ${totalAllTime} шт.`; 
+                iconEl.className = "fa-solid fa-crown"; iconEl.style.color = "#ffb300"; 
             }
         }
 
